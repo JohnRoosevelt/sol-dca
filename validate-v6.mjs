@@ -102,10 +102,13 @@ function buildStairRatios(base, count) {
 }
 
 // === 检查分批回本触发（参数化）===
-function checkSellStairsV6(sol, totalSpent, usdt, currentPrice, sellTriggered, stairRatios, sellPct) {
+// 注: profit 算法跟生产 strategy.js:checkSellStairs 保持一致 —
+// 用 currentValue - initialUSDT 算真浮盈, 不用 currentValue - totalSpent (那个有 bug)
+function checkSellStairsV6(sol, totalSpent, usdt, currentPrice, lastBuyPrice, sellTriggered, stairRatios, sellPct, initialUSDT) {
   if (sol < 0.001) return null;
+  if (lastBuyPrice == null) return null;
   const currentValue = usdt + sol * currentPrice;
-  const profit = currentValue - totalSpent;
+  const profit = currentValue - initialUSDT;
   for (let i = 0; i < stairRatios.length; i++) {
     if (sellTriggered.has(i)) continue;
     const triggerProfit = totalSpent * stairRatios[i];
@@ -139,7 +142,7 @@ function runEWithSellParams(klines, baseStrategy, sellParams, start, evalDate) {
 
     // 分批回本检查
     if (sellParams.enabled) {
-      const sellInfo = checkSellStairsV6(sol, totalSpent, usdt, k.close, sellTriggered, stairRatios, sellParams.sellPct);
+      const sellInfo = checkSellStairsV6(sol, totalSpent, usdt, k.close, lastBuyPrice, sellTriggered, stairRatios, sellParams.sellPct, baseStrategy.initialUSDT);
       if (sellInfo) {
         const sellSol = sol * sellInfo.sellPct;
         const sellUSDT = sellSol * k.close;

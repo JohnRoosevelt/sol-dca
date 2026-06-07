@@ -86,8 +86,12 @@ export function buildStairRatios(base, count) {
  */
 export function checkSellStairs(state, currentPrice, stairRatios, sellPct) {
 	if (state.solHolding < 0.001) return null;
+	if (state.lastBuyPrice == null) return null; // 冷启动守卫: 没基准价不算 profit
 	const currentValue = state.usdtBalance + state.solHolding * currentPrice;
-	const profit = currentValue - state.totalSpent;
+	// 真浮盈: 跟初始本金 (initialUSDT) 比, 不是跟 totalSpent
+	// 旧算法 profit = currentValue - totalSpent 会把 usdtBalance 余额也算成"利润"的一部分,
+	// 冷启动 init_dca 后 (usdtBalance 6970 + solHolding 0.4743) 直接触发 sell, 是 bug
+	const profit = currentValue - STRATEGY_CONFIG.initialUSDT;
 	for (let i = 0; i < stairRatios.length; i++) {
 		if (state.sellStairsTriggered.has(i)) continue;
 		const triggerProfit = state.totalSpent * stairRatios[i];
