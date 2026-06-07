@@ -466,8 +466,7 @@
 <div class="stream">
 	<header class="topbar">
 		<div class="brand">
-<div class="logo" aria-label="OWL" role="img" />
-
+			<i class="logo" aria-label="OWL" role="img"></i>
 			<h1>SOL DCA Dashboard</h1>
 		</div>
 		<div class="topbar-right">
@@ -1047,15 +1046,16 @@
 		font-size: 1.25rem;
 		font-weight: 600;
 	}
-.logo {
-			width: 24px;
-			height: 24px;
-			background-color: currentColor;
-			mask-image: url('/logo.svg');
-			mask-size: contain;
-			mask-repeat: no-repeat;
-			mask-position: center;
-		}
+	.logo {
+		width: 24px;
+		height: 24px;
+		background-color: currentColor;
+		mask-image: url('/logo.svg');
+		mask-size: contain;
+		mask-repeat: no-repeat;
+		mask-position: center;
+		flex-shrink: 0;
+	}
 	.topbar-right {
 		display: flex;
 		align-items: center;
