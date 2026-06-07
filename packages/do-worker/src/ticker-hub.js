@@ -1050,7 +1050,7 @@ export class TickerHub {
 				try {
 					await this.okx.marketSell(this.instId, body.amountSol, clOrdId);
 					const usdtGot = body.amountSol * this.lastTickerPrice;
-					this.portfolio.solHolding = Math.max(0, this.portfolio.solHolding - body.amountSol);
+					this.portfolio.solHolding = Math.max(0, Math.floor((this.portfolio.solHolding - body.amountSol) * 1000000) / 1000000);
 					this.portfolio.usdtBalance += usdtGot;
 					await this.persistPortfolio();
 					this.broadcastBrowser({ type: 'manual_sell_done', amountSol: body.amountSol });
