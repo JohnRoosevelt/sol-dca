@@ -466,12 +466,12 @@
 <div class="stream">
 	<header class="topbar">
 		<div class="brand">
-			<img
-				class="logo"
-				src="/logo.svg"
-				alt="OWL"
-				aria-label="OWL"
-			/>
+<img
+					class="logo"
+					src="/logo.svg"
+					alt="OWL"
+					aria-label="OWL"
+				/>
 
 			<h1>SOL DCA Dashboard</h1>
 		</div>
