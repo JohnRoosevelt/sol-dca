@@ -1,14 +1,38 @@
-# OKX Demo credentials — Phase 1
-# 复制你的 OKX 模拟盘 API key 进来(在 https://www.okx.com 账户 → Demo trading → API key)
-# 模拟盘和实盘是两套独立的 API key,这里只填 demo 那套
+# OKX Demo / Live credentials
 #
-# 拿值:wrangler secret list 在 --remote 模式下能看到 key 名(看不到 value,需 CF dashboard 复制)
+# OKX 模拟盘和实盘是两套独立的 API key,同一个 OKX 账号下分别申请。
+# OKX_DEMO_MODE=1 → 用 OKX_DEMO_* (Phase 1,模拟盘)
+# OKX_DEMO_MODE=0 → 用 OKX_LIVE_* (Phase 2,实盘)
 #
-# 启动 dev 之前必须 3 个都填,否则 UI 顶部会显示"OKX credentials missing"
+# dev 阶段 (wrangler dev --local) 读这个文件;deploy 阶段 wrangler secret put 注入远端。
+# deploy 阶段不需要这个文件,值存在 CF Workers → sol-dca-do-worker → Secrets。
+#
+# 拿值 (dev 阶段):
+# - Demo: https://www.okx.com → 个人中心 → 模拟交易 → API → Create V5 API (权限 read + trade, 不开 withdraw)
+# - Live: 同上,但走"交易"标签下实盘账号(单独申请)
+# 拿值 (deploy 阶段):
+# - CF Dashboard → Workers & Pages → sol-dca-do-worker → Settings → Variables → Secrets
 
+# === Phase 1: Demo (默认) ===
 OKX_DEMO_MODE=1
 
 # https://www.okx.com → 个人中心 → Demo Trading → API → Create
 OKX_DEMO_API_KEY=
 OKX_DEMO_API_SECRET=
 OKX_DEMO_PASSPHRASE=
+
+# === Phase 2: Live (切实盘时启用) ===
+# 切换时:
+# 1. 填下面 3 个 value
+# 2. 把上面 OKX_DEMO_MODE=1 改成 OKX_DEMO_MODE=0
+# 3. 重启 bun dev (wrangler dev --local 启动时才读 .dev.vars)
+# 4. 部署后切 live: wrangler secret put OKX_LIVE_* + 改 wrangler.toml OKX_DEMO_MODE="0" + wrangler deploy
+
+# https://www.okx.com → 个人中心 → 交易 → API → Create V5 API
+# ⚠️ Live 阶段用的是真钱,确保:
+#   - 权限只开 read + trade, ❌ 不开 withdraw
+#   - 单独 API key,不复用 demo 那套
+#   - IP 白名单 (OKX 后台可设) 限制到 CF egress IP 段
+# OKX_LIVE_API_KEY=
+# OKX_LIVE_API_SECRET=
+# OKX_LIVE_PASSPHRASE=
