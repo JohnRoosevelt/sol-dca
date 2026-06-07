@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { WS_URL, TOTP_SECRET } from '$lib/config.js';
 	import TOTPModal from '$lib/components/TOTPModal.svelte';
+	import OWLLogo from '$lib/assets/owl-logo.svg';
 
 	// OWL logo: src/lib/assets/owl-logo.svg (Game Icons, MIT)
 
