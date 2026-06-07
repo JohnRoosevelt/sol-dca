@@ -2,9 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { WS_URL, TOTP_SECRET } from '$lib/config.js';
 	import TOTPModal from '$lib/components/TOTPModal.svelte';
-	import OWLLogo from '$lib/assets/owl-logo.svg';
-
-	// OWL logo: src/lib/assets/owl-logo.svg (Game Icons, MIT)
+	// OWL logo: static/owl-logo.svg (Game Icons, MIT)
 
 	// +page.svelte 把 SSR data 包成 initial prop 传过来
 	let { initial = {} } = $props();
@@ -471,7 +469,7 @@
 		<div class="brand">
 							<img
 					class="logo"
-					src={OWLLogo}
+					src="/owl-logo.svg"
 					alt="OWL"
 					aria-label="OWL"
 					role="img"
