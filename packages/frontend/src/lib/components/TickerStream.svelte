@@ -1,6 +1,6 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
-	import { WS_URL, getTotpSecret } from '$lib/config.js';
+	import { WS_URL, TOTP_SECRET } from '$lib/config.js';
 	import TOTPModal from '$lib/components/TOTPModal.svelte';
 
 	// OWL logo 来自 ~/project/my/owl/static/icons/logo.svg (Game Icons, MIT)
@@ -55,36 +55,46 @@
 	let showTotpModal = $state(false);
 	let pendingMode = $state(null);
 
+	// === 30 分钟免重输 TOTP ===
+	const TOTP_VERIFIED_KEY = 'sol-dca-totp-verified-at';
+	const GRACE_MS = 30 * 60 * 1000; // 30 分钟
+
+	/** 读 localStorage 时间戳, 判断是否在 30 分钟窗口内 */
+	function isWithinGrace() {
+		if (typeof window === 'undefined') return false;
+		const raw = localStorage.getItem(TOTP_VERIFIED_KEY);
+		if (!raw) return false;
+		const ts = Number(raw);
+		if (!Number.isFinite(ts)) return false;
+		return Date.now() - ts < GRACE_MS;
+	}
+
+	/** 写时间戳 (验证成功后调用) */
+	function markTotpVerified() {
+		if (typeof window !== 'undefined') {
+			localStorage.setItem(TOTP_VERIFIED_KEY, String(Date.now()));
+		}
+	}
+
+	/** 跨 tab 同步: tab A 验证通过, tab B 立即感知并免验证 */
+	onMount(() => {
+		window.addEventListener('storage', (e) => {
+			if (e.key === TOTP_VERIFIED_KEY && e.newValue) {
+				// 另一个 tab 刚写入了时间戳 — 刷新当前 tab 的 grace 状态
+				// 如果当前 pendingMode = 'live' 且弹了 modal, 下次 switch 会跳过
+			}
+		});
+	});
+
 	function confirmTotpAndSwitch() {
 		showTotpModal = false;
 		const target = pendingMode || 'live';
 		pendingMode = null;
+		// 验证成功 → 写时间戳 (Cancel/错误不写)
+		markTotpVerified();
 		if (target !== 'live') return;
-		mode = target;
-		if (typeof window !== 'undefined') {
-			localStorage.setItem('sol-dca-mode', target);
-			document.cookie = `sol-dca-mode=${target}; path=/; max-age=31536000; SameSite=Lax`;
-		}
-		if (ws) {
-			ws.onclose = null;
-			try { ws.close(); } catch (_) {}
-			ws = null;
-		}
-		portfolio = null;
-		paused = false;
-		okxWsState = 'init';
-		lastTickerPrice = 0;
-		lastTickerAt = 0;
-		recentSignals = [];
-		recentTrades = [];
-		historyEntries = [];
-		historyFilter = 'all';
-		lastError = null;
-		connect();
-		fetchState();
-		loadHistory();
+		performModeSwitch(target);
 	}
-
 	// 派生:是否已初始化 DCA(决定 Start DCA 按钮是否显示)
 	let needsInit = $derived(portfolio != null && portfolio.lastBuyPrice == null);
 
@@ -268,35 +278,39 @@
 	// === Mode switch (demo <-> live) ===
 	//   切到 live 时需要 TOTP 验证 (会动真钱)
 	//   切完: 关闭老 WS, 重新连接新 mode 的 DO, 清空前端 buffer, 重拉 state
-	async function switchMode(target) {
+	function switchMode(target) {
 		if (!VALID_MODES.includes(target)) return;
 		if (target === mode) return;
 		if (target === 'live') {
-			const secret = await getTotpSecret();
-			if (!secret) {
-				console.warn('[switchMode] TOTP_SECRET not configured, skipping 2FA');
-			} else {
-				pendingMode = 'live';
-				showTotpModal = true;
+			const secret = TOTP_SECRET;
+			if (secret && isWithinGrace()) {
+				// 30 分钟窗口内, 直接切换不弹 modal
+				pendingMode = null;
+				performModeSwitch(target);
 				return;
 			}
+			if (!secret) {
+				console.warn('[switchMode] TOTP_SECRET not configured, skipping 2FA');
+			}
+			pendingMode = 'live';
+			showTotpModal = true;
+			return;
 		}
-		// 1) 持久化
+		performModeSwitch(target);
+	}
+
+	/** 执行 mode 切换 (公共逻辑, 供 switchMode demo 路径和 confirmTotpAndSwitch live 路径共用) */
+	function performModeSwitch(target) {
 		mode = target;
 		if (typeof window !== 'undefined') {
 			localStorage.setItem('sol-dca-mode', target);
-			// 同步到 cookie (SSR +page.server.js 读 cookie 决定拉哪个 DO, 避免刷新后 SSR 拿到错 mode)
 			document.cookie = `sol-dca-mode=${target}; path=/; max-age=31536000; SameSite=Lax`;
 		}
-		// 2) 关 WS (避免 onclose 触发 reconnect 接到老 DO)
 		if (ws) {
 			ws.onclose = null;
-			try {
-				ws.close();
-			} catch (_) {}
+			try { ws.close(); } catch (_) {}
 			ws = null;
 		}
-		// 3) 清前端 buffer (切了不同 DO, 老数据不适用)
 		portfolio = null;
 		paused = false;
 		okxWsState = 'init';
@@ -304,11 +318,9 @@
 		lastTickerAt = 0;
 		recentSignals = [];
 		recentTrades = [];
-		// 完整历史也要清 — 不然切到 live 还会显示老 demo 的 50 条 (D1 用 mode 列物理隔离, 但前端 buffer 是共享的)
 		historyEntries = [];
-		historyFilter = 'all'; // 重置 filter, 新 mode 不继承老 filter
+		historyFilter = 'all';
 		lastError = null;
-		// 4) 重新连接新 mode 的 DO + 拉一次 state + 拉新 mode 的完整历史
 		connect();
 		fetchState();
 		loadHistory();
@@ -765,7 +777,7 @@
 	</section>
 </div>
 
-<TOTPModal bind:open={showTotpModal} onVerify={confirmTotpAndSwitch} />
+<TOTPModal bind:open={showTotpModal} onVerify={confirmTotpAndSwitch} onCancel={() => (pendingMode = null)} />
 
 <style>
 	.stream {

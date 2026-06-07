@@ -1,16 +1,16 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
 	import { verifyTOTP, totpCountdown } from '$lib/totp.js';
-	import { getTotpSecret } from '$lib/config.js';
+	import { TOTP_SECRET } from '$lib/config.js';
 
-	let { open = false, onVerify = () => {} } = $props();
+	let { open = $bindable(false), onVerify = () => {}, onCancel = () => {} } = $props();
 
 	let digits = $state(['', '', '', '', '', '']);
 	let errorMsg = $state('');
 	let verifying = $state(false);
 	let countdown = $state(30);
 	let countdownTimer = null;
-	let inputRefs = [];
+	let inputRefs = $state([]);
 
 	function startCountdown() {
 		clearInterval(countdownTimer);
@@ -91,11 +91,13 @@
 		verifying = true;
 		errorMsg = '';
 		try {
-			const valid = await verifyTOTP((await getTotpSecret()) || '', code);
+			const valid = await verifyTOTP(TOTP_SECRET || '', code);
 			if (valid) {
 				onVerify();
 			} else {
 				errorMsg = '验证码错误，请重试';
+				open = false;
+				onCancel();
 			}
 		} catch (_) {
 			errorMsg = '验证失败，请重试';
@@ -108,6 +110,7 @@
 		open = false;
 		digits = ['', '', '', '', '', ''];
 		errorMsg = '';
+		onCancel();
 	}
 
 	onDestroy(() => stopCountdown());

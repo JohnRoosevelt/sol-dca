@@ -1,31 +1,17 @@
 /**
- * Frontend runtime config — 通过 Vite env var 注入
+ * Frontend runtime config — 通过 SvelteKit env 注入
  *
- * PUBLIC_WS_URL: 浏览器 WebSocket 连接 URL
+ * PUBLIC_WS_URL: WS 连接 URL
  *   dev:  ws://localhost:8787/ws
  *   prod: wss://sol-dca-do-worker.<sub>.workers.dev/ws
- *         (Pages dashboard env 注入)
  *
  * PUBLIC_TOTP_SECRET: TOTP 2FA secret
- *   运行时从 Cloudflare Pages 环境变量注入 (wrangler secret put)
- *   用 $env/dynamic/public 避免 build 时 bake 进 bundle
- *   通过 async getter 延迟访问 (避免 SSR build 时 import 失败)
- *
- * Vite 暴露 `PUBLIC_*` 前缀的 env var 到 client 代码 (import.meta.env.PUBLIC_*).
+ *   dev:  从 .env 读
+ *   prod:  从 .env.production 读（build 时 bake 进 bundle）
+ *         密钥不写进 wrangler.toml，始终走 env 文件
  */
 
-import { PUBLIC_WS_URL } from '$env/static/public';
+import { PUBLIC_WS_URL, PUBLIC_TOTP_SECRET } from '$env/static/public';
 
 export const WS_URL = PUBLIC_WS_URL;
-
-let _totpSecret;
-export async function getTotpSecret() {
-	if (_totpSecret !== undefined) return _totpSecret;
-	try {
-		const mod = await import('$env/dynamic/public');
-		_totpSecret = mod.PUBLIC_TOTP_SECRET || '';
-	} catch {
-		_totpSecret = '';
-	}
-	return _totpSecret;
-}
+export const TOTP_SECRET = PUBLIC_TOTP_SECRET || '';
