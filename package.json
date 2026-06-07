@@ -2,17 +2,14 @@
 	"name": "sol-dca-dashboard",
 	"private": true,
 	"type": "module",
-	"description": "SOL DCA Dashboard monorepo — SvelteKit (Pages) + DO/WS Worker + D1",
+	"description": "SOL DCA Dashboard monorepo — SvelteKit (Pages) + DO/WS Worker",
 	"workspaces": ["packages/*"],
 	"scripts": {
 		"dev": "concurrently -n frontend,worker -c blue,green \"bun run dev:frontend\" \"bun run dev:worker\"",
 		"dev:frontend": "bun --filter '*sol-dca-frontend' dev",
 		"dev:worker": "bun --filter '*sol-dca-do-worker' dev",
-		"build": "bun --filter '*sol-dca-frontend' build && bun --filter '*sol-dca-do-worker' build",
-		"deploy": "bun --filter '*sol-dca-frontend' deploy && bun --filter '*sol-dca-do-worker' deploy",
-		"db:generate": "bun --filter '*sol-dca-do-worker' db:generate",
-		"db:migrate:local": "bun --filter '*sol-dca-do-worker' db:migrate:local",
-		"db:migrate:remote": "bun --filter '*sol-dca-do-worker' db:migrate:remote"
+		"build": "PUBLIC_WS_URL=ws://localhost:8787/ws bun --filter '*sol-dca-frontend' build && bun --filter '*sol-dca-do-worker' build",
+		"deploy": "bun --filter '*sol-dca-frontend' deploy && bun --filter '*sol-dca-do-worker' deploy"
 	},
 	"devDependencies": {
 		"concurrently": "^9.1.0"

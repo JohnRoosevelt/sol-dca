@@ -1,7 +1,7 @@
 # SOL DCA Dashboard — User Checklist
 
 > **给 user 醒后看的工作黑板**。Mavis 滚动窗口模式：每段只保留最新状态。
-> 上次更新：2026-06-07 16:10（Mavis 把 D1↔DO schema 漂移全修齐 + 5 项 UX 优化 + 2 个 strategy bug 修）
+> 上次更新：2026-06-07 16:10（Mavis 修 schema 漂移 + 5 项 UX 优化 + 2 个 strategy bug 修）
 
 ---
 
@@ -20,7 +20,7 @@
 
 ### ✅ 架构定型（user 拍板 + Mavis 修正）
 - ~~SvelteKit 塞 Worker + DO~~（A 方案 v1，Mavis 错的选择）
-- → **SvelteKit Pages + 独立 DO Worker + D1**（A 方案 v2，user 拍板）
+- → **SvelteKit Pages + 独立 DO Worker**（A 方案 v2，user 拍板）
 - 理由：Pages 是 SvelteKit 标准部署路径；DO 必须在独立 Worker 里；Pages Function 通过 service binding 调 worker
 
 ### ✅ Monorepo 结构（bun workspace）
@@ -29,10 +29,10 @@
 ├── package.json                    # bun workspace root
 ├── packages/
 │   ├── frontend/                   # SvelteKit → Cloudflare Pages
-│   │   ├── src/routes/api/         # state/control → service binding, trades/signals → D1 直读
+│   │   ├── src/routes/api/         # state/control/signals/trades/reset → service binding → DO
 │   │   ├── src/lib/components/     # TickerStream.svelte (Svelte 5 runes)
 │   │   ├── src/lib/config.js       # WS_URL = PUBLIC_WS_URL env
-│   │   ├── wrangler.toml           # Pages + SOL_DCA_DB + SOL_DCA_WORKER (service)
+│   │   ├── wrangler.toml           # Pages + SOL_DCA_WORKER (service)
 │   │   └── svelte.config.js        # adapter-cloudflare, platformProxy.remoteBindings=false
 │   └── do-worker/                  # Worker → DO + WS + OKX
 │       ├── src/index.js            # Worker 入口 + export TickerHub
@@ -41,14 +41,13 @@
 │       ├── src/okx/                # HMAC + public WS
 │       ├── src/db/schema.js        # Drizzle (跟 frontend 共享)
 │       ├── drizzle/migrations/     # 4 张表
-│       └── wrangler.toml           # Worker + SOL_DCA_TICKER_HUB + SOL_DCA_DB
+│       └── wrangler.toml           # Worker + SOL_DCA_TICKER_HUB
 ├── backtest.mjs / validate-*.mjs   # 回测脚本（顶层）
 ├── docs/
 └── USER-CHECKLIST.md (本文件)
 ```
 
 ### ✅ Binding 命名（SOL_DCA_* 前缀）
-- `SOL_DCA_DB` — D1（两边共享同一 database_id）
 - `SOL_DCA_WORKER` — frontend 调 worker 的 service binding
 - `SOL_DCA_TICKER_HUB` — worker 内的 DO binding（class_name = "TickerHub"）
 
@@ -57,26 +56,23 @@
 - `bun run dev` → 起 vite (5173) + wrangler dev (8787)
 - ✅ `GET http://localhost:5173/` → HTTP 200（SvelteKit UI 渲染）
 - ✅ `GET http://localhost:5173/api/state` → portfolio JSON（service binding → worker → DO）
-- ✅ `GET http://localhost:5173/api/trades` → `{trades:[]}`（D1 直读）
-- ✅ `GET http://localhost:5173/api/signals` → `{signals:[]}`（D1 直读）
+- ✅ `GET http://localhost:5173/api/trades` → `{trades:[]}`（service binding → DO storage）
+- ✅ `GET http://localhost:5173/api/signals` → `{signals:[]}`（service binding → DO storage）
 - ✅ `GET http://localhost:8787/health` → `{ok:true}`（worker 健康检查）
 - ✅ `GET http://localhost:8787/state` → portfolio JSON（worker 直调 DO）
-- 本地 D1 已 migrate（两个 .wrangler/state 都要 run migration, 跟 user 提一下）
 
 ### ⚠️ 已知未做
 - ✅ **wrangler OAuth** — 已解决，`wrangler dev --remote` 正常可用
-- **真远端 D1 database_id** — 现在 `5ade6a02-...` 是 wrangler dev 自动分配的本地 ID；user 跑 `wrangler d1 create sol-dca-dashboard` 拿真 ID 后改两个 wrangler.toml
 - **OKX Demo secrets** — 本地 .dev.vars 空的，dev 阶段 buy/sell 走不通（missingCredentials）；远端 secret 已 put 过，部署后自动生效
 - **PUBLIC_WS_URL 部署时** — Pages dashboard env var 设 `wss://sol-dca-do-worker.<sub>.workers.dev/ws`，dev 阶段 dev script 注入 `ws://localhost:8787/ws`
-- ⚠️ **dev 阶段 D1 不互通**（Mavis 自主跑发现）— frontend `/api/signals` `/api/trades` 直读 D1，但 frontend 跟 do-worker 是两个 miniflare 进程，database_id 一样但 SQLite 文件不共享。**部署后 OK**（同一个真 D1），dev 阶段 `/api/signals` 永远空，但前端 TickerStream.svelte 走 WS 推送不消费这俩 endpoint，所以 dashboard 视觉上 OK
 - ⚠️ **OKX WS 1006 每次断开都 alert**（Mavis 自主跑发现）— 重连机制 OK，但报警会刷屏飞书
 
 ### ✅ 本 session 修了（2026-06-07 10:00-16:10）
-- **🎯 重大：DO storage ↔ D1 schema 漂移修复** — 4 个 schema 源 (db/schema.js / 0000_initial.sql / 0000_snapshot.json / worker SQL_SCHEMA) 4 个不同状态。`sell_stairs_triggered` / `okx_fee` / `intended_amount_usdt` 在 D1 根本不存在 → persistTrade 写 D1 silent fail (try/catch 吞) → 归档层 100% 丢数据。统一改 `portfolio_state` 名字（去掉 D1 漂移的 `last_buy_date` 孤儿列），Drizzle / SQL migration / worker SQL / worker raw SQL 全部对齐。dev destructive 重建验证：触发 init_dca 后 D1 真有 `okx_fee='-0.000464313 SOL'` 和 `intended_amount_usdt=30.0`，`sell_stairs_triggered='[]'`。V6 sell stairs 状态机现在 DO 重启后能从 D1 恢复，不会丢
-- ✅ **D1 signal 写入太频繁** (5815 条/分) — hold 加 rate limit: 30s 心跳 + 0.2% 价格变化补一条。Buy/Sell/Skip 立刻记
+- **🎯 重大：DO schema 漂移修复** — 4 个 schema 源 (db/schema.js / 0000_initial.sql / 0000_snapshot.json / worker SQL_SCHEMA) 4 个不同状态。`sell_stairs_triggered` / `okx_fee` / `intended_amount_usdt` 在 DO SQLite 不一致 → persistTrade silent fail (try/catch 吞) → 数据丢失。统一改 `portfolio_state` 名字，Drizzle / SQL migration / worker SQL / worker raw SQL 全部对齐。dev destructive 重建验证：触发 init_dca 后数据正确。V6 sell stairs 状态机现在 DO 重启后能正确恢复，不会丢
+- ✅ **signal 写入太频繁** (5815 条/分) — hold 加 rate limit: 30s 心跳 + 0.2% 价格变化补一条。Buy/Sell/Skip 立刻记
 - ✅ **Svelte 5 runes 警告 8 个** — TickerStream.svelte 改成 $state + $derived (P&L 实时算 live, 不依赖 server snapshot)
 - ✅ **OKX marketBuy 多一次网络请求** — 用 lastTickerPrice 估算，省 ~50ms
-- ✅ **persistSignal 失败被吞** — DO + D1 双 try/catch + broadcast error, 失败不静默
+- ✅ **persistSignal 失败被吞** — DO try/catch + broadcast error, 失败不静默
 - ✅ **"决策日志 + 最近成交" 跟"完整历史"重复** — 删两块, 完整历史是唯一 history view
 - ✅ **页面外背景只一块** — +layout.svelte 全局 :global(html, body) 黑色
 - ✅ **手机优先 UI** — 完整 media query, portfolio 单列 + 触摸 44px + 表格横滑
@@ -84,7 +80,7 @@
 - ✅ **refresh 按钮位置** — 挪到 USDT/SOL card 顶部
 - ✅ **P&L 不跟 ticker 实时更新** — $derived 实时算, live dot 标识
 - ✅ **trades 一刷新就空** — hello 消息加 recentSignals/recentTrades, 跟 /state 对齐
-- ✅ **SCHEMA_SQL 拼错** — pre-existing typo, applyMigrations 改 SQL_SCHEMA 跟 D1 一致
+- ✅ **SCHEMA_SQL 拼错** — pre-existing typo, applyMigrations 改 SQL_SCHEMA 正确
 - ✅ **"未触发 + 余额不足" 文案错** — 4 种 hold 情况分文案 (跌幅不足 / 月度上限 / 余额不足 / 冷启动)
 
 ---
@@ -101,18 +97,6 @@
 ```bash
 cd ~/projects/sol-dca-dashboard
 bun install
-```
-
-### 一次性：本地 D1 migration（两个 workspace 各跑一次）
-```bash
-# do-worker 的 D1（DO 写）
-cd packages/do-worker && bun run db:migrate:local && cd ../..
-
-# frontend 的 D1（Pages Function 直读）
-cd packages/frontend && bunx wrangler d1 migrations apply sol-dca-dashboard --local && cd ../..
-
-# 或者从根目录: bun run db:migrate:local
-# 注：根脚本只跑 do-worker 的, frontend 的要单独跑
 ```
 
 ### 一次性：申请 OKX Demo Trading API Key
@@ -158,21 +142,10 @@ wrangler login
 # 浏览器走 OAuth, 落本地 token
 ```
 
-### Step 1：创建真远端 D1 + apply schema
-```bash
-cd ~/projects/sol-dca-dashboard/packages/do-worker
-wrangler d1 create sol-dca-dashboard
-# 复制输出的 database_id, 粘到 packages/{frontend,do-worker}/wrangler.toml
-# (两个文件的 database_id 改成同一个)
-
-# 两个都改完后, deploy 前
-cd packages/do-worker && bun run db:migrate:remote
-```
-
-### Step 2：wrangler secret 注入（do-worker）
+### Step 1：wrangler secret 注入（do-worker）
 看上面"一次性：wrangler secret 注入"段
 
-### Step 3：deploy worker（先！）
+### Step 2：deploy worker（先！）
 ```bash
 cd ~/projects/sol-dca-dashboard/packages/do-worker
 bun run deploy
@@ -181,11 +154,10 @@ bun run deploy
 # 记下这个 URL, 给 Step 4 用
 ```
 
-### Step 4：Pages dashboard 设 env var + deploy frontend
+### Step 3：Pages dashboard 设 env var + deploy frontend
 1. CF Dashboard → Pages → sol-dca-dashboard → Settings → Environment variables
-2. Add: `PUBLIC_WS_URL` = `wss://sol-dca-do-worker.<sub>.workers.dev/ws`（用 Step 3 拿到的 URL）
-3. 改 `packages/frontend/wrangler.toml` 的 D1 binding `remote = true`
-4. 改 `packages/frontend/wrangler.toml` 的 `[[services]] service` 用真 worker name（默认就是 `sol-dca-do-worker`）
+2. Add: `PUBLIC_WS_URL` = `wss://sol-dca-do-worker.<sub>.workers.dev/ws`（用 Step 2 拿到的 URL）
+3. 改 `packages/frontend/wrangler.toml` 的 `[[services]] service` 用真 worker name（默认就是 `sol-dca-do-worker`）
 5. ```bash
    cd packages/frontend
    bun run deploy
@@ -193,21 +165,21 @@ bun run deploy
    ```
 6. 输出: URL `https://sol-dca-dashboard.<sub>.pages.dev`
 
-### Step 5：访问 dashboard
+### Step 4：访问 dashboard
 - 打开 Pages URL
 - 看到实时 SOL/USDT 价格 + 持仓（初始 7000U）+ 决策日志
 - 等 OKX 推送 ticker 3-5 秒就会开始决策
 
-### Step 6：观察 1-2 周
+### Step 5：观察 1-2 周
 - Dashboard 实时显示：每次 ticker → 决策 → 是否下单
-- trades / signals 写到 D1
+- trades / signals 写到 DO storage
 - 报警（可选）：WS 断开 / ticker 30s 静默 → 飞书
 
 ### Phase 2（1-2 周后）：切 Live
 - 申请 OKX Live API Key（**单独的**，跟 Demo 是两套；同样 read + trade，不开 withdraw）
 - `wrangler secret put OKX_LIVE_API_KEY/SECRET/PASSPHRASE`（**不要**碰 demo 那 3 个，只对 do-worker）
 - 改 `packages/do-worker/wrangler.toml` vars 里的 `OKX_DEMO_MODE: "0"`（或 env 设 `OKX_DEMO_MODE=0`）
-- `wrangler deploy` 重启 do-worker
+- `wrangler deploy` 重启 do-worker（Step 2）
 - 真实盈亏从这一刻开始
 
 **Phase 1 vs Phase 2 规则**（只列 user 显式说过的）：
@@ -228,8 +200,8 @@ bun run deploy
 
 ## 📊 MAVIS_LOG（滚动窗口 = 最近 1 条）
 
-**2026-06-07 16:10 tick**（user 4 轮集中反馈 UX + strategy bug 修复 + D1↔DO schema 对齐）
-- 🎯 **D1↔DO schema 漂移全修齐** — 4 个 schema 源对齐，dev destructive 重建后 D1 真有 `sell_stairs_triggered` / `okx_fee` / `intended_amount_usdt` 数据。V6 sell stairs 状态机 DO 重启后能从 D1 恢复
+**2026-06-07 16:10 tick**（user 4 轮集中反馈 UX + strategy bug 修复 + schema 对齐）
+- 🎯 **schema 漂移全修齐** — 4 个 schema 源对齐，dev destructive 重建后数据正确。V6 sell stairs 状态机 DO 重启后能正确恢复
 - 🎯 **完整历史** section — 合并决策+成交, 4 个 filter (全部/决策/成交/hold), WS push 实时 prepend, 删了重复的"决策日志 + 最近成交"两块
 - 🎯 **P&L 实时跟 ticker** — $derived 算 liveCurrentValue / liveProfit / liveProfitPct / liveUnrealizedPnL
 - 🎯 **5 项 UX 改进** — 黑底 / 手机优先 / refresh 按钮顶部 / 完整历史保留 / 实时 P&L

@@ -2,7 +2,6 @@
 # 部署：wrangler pages deploy .svelte-kit/cloudflare --project-name sol-dca-dashboard
 #
 # Bindings:
-#   SOL_DCA_DB      — D1 (trades / signals / portfolio_state history)
 #   SOL_DCA_WORKER  — Service binding → sol-dca-do-worker (DO 状态机 + WS 路由)
 #
 # Vars:
@@ -15,16 +14,6 @@ name = "sol-dca-dashboard"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_als"]
 pages_build_output_dir = ".svelte-kit/cloudflare"
-
-# === D1 (历史查询) ===
-# dev: remote = false (用本地 miniflare, 跟 do-worker 共享 .wrangler/state 路径)
-# prod: 改 remote = true (走 Cloudflare 远端 D1, 需 wrangler login)
-[[d1_databases]]
-binding = "SOL_DCA_DB"
-database_name = "sol-dca-dashboard"
-database_id = "5ade6a02-5aad-40a8-9e67-d6b0a837a0bb"
-migrations_dir = "../do-worker/drizzle/migrations"
-remote = false
 
 # === Service binding → DO Worker ===
 # Pages Function 里: await env.SOL_DCA_WORKER.fetch('https://do/state', { method: 'GET' })

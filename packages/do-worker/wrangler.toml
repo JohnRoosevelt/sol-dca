@@ -8,7 +8,6 @@
 #
 # Bindings:
 #   SOL_DCA_TICKER_HUB  — Durable Object (class "TickerHub")
-#   SOL_DCA_DB          — D1 (trades / signals / portfolio_state 写入)
 #
 # Secrets (wrangler secret put):
 #   OKX_DEMO_API_KEY / OKX_DEMO_API_SECRET / OKX_DEMO_PASSPHRASE  (Phase 1)
@@ -31,15 +30,6 @@ class_name = "TickerHub"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["TickerHub"]
-
-# === D1 (策略写入) ===
-# 跟 frontend 的 SOL_DCA_DB 同一个 database_id, 是同一个 D1
-[[d1_databases]]
-binding = "SOL_DCA_DB"
-database_name = "sol-dca-dashboard"
-database_id = "5ade6a02-5aad-40a8-9e67-d6b0a837a0bb"
-migrations_dir = "drizzle/migrations"
-remote = true
 
 # === Vars (非敏感) ===
 [vars]

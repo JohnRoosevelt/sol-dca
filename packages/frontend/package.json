@@ -12,15 +12,12 @@
 		"check": "wrangler types --check && svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
 		"prepare": "svelte-kit sync || echo ''"
 	},
-	"dependencies": {
-		"drizzle-orm": "^0.45.2"
-	},
+	"dependencies": {},
 	"devDependencies": {
-		"@cloudflare/vite-plugin": "1.40.0",
+		"@cloudflare/vite-plugin": "^1.39.2",
 		"@sveltejs/adapter-cloudflare": "7.2.8",
 		"@sveltejs/kit": "^2.57.0",
 		"@sveltejs/vite-plugin-svelte": "^7.0.0",
-		"drizzle-kit": "^0.31.10",
 		"svelte": "^5.55.2",
 		"svelte-check": "^4.4.6",
 		"vite": "^8.0.7",

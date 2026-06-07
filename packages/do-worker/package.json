@@ -6,19 +6,10 @@
 	"description": "Cloudflare Worker — TickerHub DO + WebSocket bridge + OKX integration",
 	"scripts": {
 		"dev": "wrangler dev --port 8787 --local",
-		"dev:remote": "wrangler dev --port 8787 --remote",
 		"build": "echo 'worker has no build step — wrangler bundles on deploy'",
-		"deploy": "wrangler deploy",
-		"db:generate": "drizzle-kit generate",
-		"db:migrate:local": "wrangler d1 migrations apply sol-dca-dashboard --local",
-		"db:migrate:remote": "wrangler d1 migrations apply sol-dca-dashboard --remote",
-		"db:studio": "drizzle-kit studio"
-	},
-	"dependencies": {
-		"drizzle-orm": "^0.45.2"
+		"deploy": "wrangler deploy"
 	},
 	"devDependencies": {
-		"drizzle-kit": "^0.31.10",
 		"wrangler": "^4.81.0"
 	}
 }

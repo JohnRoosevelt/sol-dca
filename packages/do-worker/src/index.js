@@ -18,6 +18,7 @@
  * 路由：
  *   GET  /ws              → 升级 WS（?mode=demo|live 选 DO）
  *   GET  /state           → TickerHub portfolio + ticker
+ *   GET  /sync-balance     → 手动触发 OKX 余额同步
  *   POST /control         → TickerHub 控制指令
  *   POST /reset           → 清 portfolio + 历史
  *   GET  /health          → 健康检查
@@ -80,7 +81,7 @@ export default {
 		}
 
 		// HTTP 路由 — 转发到 DO 内部路由
-		if (path === '/state' || path === '/control' || path === '/recent_signals' || path === '/recent_trades' || path === '/reset' || path === '/debug/okx-balance') {
+		if (path === '/state' || path === '/control' || path === '/recent_signals' || path === '/recent_trades' || path === '/reset' || path === '/debug/okx-balance' || path === '/sync-balance') {
 			return stub.fetch(new Request(
 				`https://do${path}${url.search}`,
 				{
@@ -100,6 +101,7 @@ export default {
 					'/health',
 					'/ws?mode=demo|live (websocket upgrade)',
 					'/state?mode=demo|live',
+					'/sync-balance?mode=demo|live',
 					'/recent_signals?mode=demo|live',
 					'/recent_trades?mode=demo|live',
 					'/control?mode=demo|live (POST)',

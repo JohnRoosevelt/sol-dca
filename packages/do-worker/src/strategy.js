@@ -208,7 +208,8 @@ export function maybeResetMonth(state, todayMonthKey) {
  */
 export function applyBuy(state, amountUsdt, amountSol, price, todayMonthKey) {
 	state.usdtBalance -= amountUsdt;
-	state.solHolding += amountSol;
+	// 截到 6 位，防止 OKX 精度(8位) vs DO state 累积误差
+	state.solHolding = Math.max(0, Math.floor((state.solHolding + amountSol) * 1000000) / 1000000);
 	state.lastBuyPrice = price;
 	// 加权平均价 — 含历史持仓成本
 	if (state.avgBuyPrice == null || state.solHolding - amountSol < 0.0001) {
@@ -235,7 +236,8 @@ export function applyBuy(state, amountUsdt, amountSol, price, todayMonthKey) {
  * @param {number} stairIdx
  */
 export function applySell(state, amountUsdt, amountSol, price, stairIdx) {
-	state.solHolding -= amountSol;
+	// 截到 6 位，防止精度漂移累积；clamp 到 0 防止负数
+	state.solHolding = Math.max(0, Math.floor((state.solHolding - amountSol) * 1000000) / 1000000);
 	state.usdtBalance += amountUsdt;
 	state.totalSoldUSDT = (state.totalSoldUSDT || 0) + amountUsdt;
 	state.sellStairsTriggered.add(stairIdx);

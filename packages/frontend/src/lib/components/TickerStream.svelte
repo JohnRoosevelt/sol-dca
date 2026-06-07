@@ -281,7 +281,7 @@
 
 	async function fetchState() {
 		try {
-			const res = await fetch(`/api/state?mode=${mode}`);
+			const res = await fetch(`/api/sync-balance?mode=${mode}`);
 			if (!res.ok) {
 				lastError = `state ${mode} failed: ${res.status}`;
 				return;
@@ -538,7 +538,7 @@
 						{refreshing ? '⏳' : '🔄'}
 					</button>
 				</div>
-				<div class="value">{portfolio.solHolding.toFixed(4)}</div>
+				<div class="value">{(Math.floor(portfolio.solHolding * 1000) / 1000).toFixed(3)}</div>
 			</div>
 			<div class="card">
 				<div class="label">总价值</div>

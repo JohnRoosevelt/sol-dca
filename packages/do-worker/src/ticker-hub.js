@@ -7,7 +7,6 @@
  * 3. ticker 推送 → 调 strategy.decide() → OKX private API 下单
  * 4. 写 portfolio + signals + trades:
  *    - DO 内置 sqlite (state.storage.sql) 做热数据, ~ms 写, FIFO 50/30
- *    - D1 做永久归档 (do-worker 跨实例/跨 region 恢复用)
  * 5. 监控：WS 断开 / ticker 30s 静默 / 下单失败 → 飞书 webhook (rate limited)
  * 6. 接收 browser 控制指令（pause / resume / manual / init_dca）
  *
@@ -98,6 +97,10 @@ const SQL_SCHEMA = `
 	);
 	CREATE INDEX IF NOT EXISTS idx_signals_created_at ON signals (created_at DESC);
 	CREATE INDEX IF NOT EXISTS idx_trades_created_at ON trades (created_at DESC);
+	CREATE TABLE IF NOT EXISTS alert_cooldowns (
+		key TEXT PRIMARY KEY,
+		last_sent INTEGER NOT NULL
+	);
 `;
 
 // 兼容老 DO storage — user 要求 destructive 重建, 不 ALTER 加列
@@ -106,7 +109,8 @@ const SQL_SCHEMA = `
 const SCHEMA_REBUILD = [
 	'DROP TABLE IF EXISTS portfolio_state',
 	'DROP TABLE IF EXISTS signals',
-	'DROP TABLE IF EXISTS trades'
+	'DROP TABLE IF EXISTS trades',
+	'DROP TABLE IF EXISTS alert_cooldowns'
 ];
 
 /** @param {any} storage DO SQLite storage */
@@ -189,7 +193,7 @@ export class TickerHub {
 	}
 
 	/**
-	 * 读 portfolio (优先 DO storage → D1 恢复 → OKX 真实余额 → 写死 7000)
+	 * 读 portfolio (优先 DO storage → OKX 真实余额 → 写死 7000)
 	 */
 	async loadPortfolio() {
 		// demo 跟 live 各自用独立 row id (1 / 2), D1 schema 不加 mode 列
@@ -204,44 +208,24 @@ export class TickerHub {
 			return;
 		}
 
-		// 2) DO storage 空 → 从 D1 恢复 (DO 重建后场景, 用 D1 永久归档数据)
-		if (this.env.SOL_DCA_DB) {
-			try {
-				const row = await this.env.SOL_DCA_DB.prepare(
-					'SELECT * FROM portfolio_state WHERE id = ?'
-				)
-					.bind(portfolioRowId)
-					.first();
-				if (row) {
-					this.portfolio = this.rowToPortfolio(this.d1RowToPortfolioRow(row));
-					await this.persistPortfolio();
-					console.log('[TickerHub] recovered portfolio from D1 → DO storage');
-					return;
-				}
-			} catch (err) {
-				console.error('[TickerHub] D1 recovery failed:', err);
-			}
-		} else {
-			console.warn('[TickerHub] D1 binding missing — skipping D1 recovery');
-		}
-
-		// 3) 调 OKX 拿真实 demo 余额
+		// 2) 调 OKX 拿真实 demo 余额
 		if (this.missingCredentials.length === 0) {
 			try {
 				const usdt = await this.okx.getUsdtBalance();
-				const sol = await this.okx.getSolBalance();
+				const solRaw = await this.okx.getSolBalance();
+				const solTruncated = Math.floor(solRaw * 1000000) / 1000000;
 				this.portfolio = this.defaultPortfolio();
 				this.portfolio.usdtBalance = usdt;
-				this.portfolio.solHolding = sol;
+				this.portfolio.solHolding = solTruncated;
 				await this.persistPortfolio();
-				console.log(`[TickerHub] portfolio synced from OKX: ${usdt} USDT + ${sol} SOL`);
+				console.log(`[TickerHub] /state sync: OKX raw=${solRaw} → floor→${solTruncated} (6dp) | USDT=${usdt} | mode=${this.mode}`);
 				return;
 			} catch (err) {
 				console.error('[TickerHub] OKX getBalance failed:', err);
 			}
 		}
 
-		// 4) fallback: 写死 7000
+		// 3) fallback: 写死 7000
 		this.portfolio = this.defaultPortfolio();
 		await this.persistPortfolio();
 		console.warn('[TickerHub] using hardcoded 7000U default — OKX credentials missing or API failed');
@@ -291,29 +275,7 @@ export class TickerHub {
 	}
 
 	/**
-	 * D1 row (snake_case, 列名带 portfolio_state 前缀) → DO storage row shape
-	 * 复用 rowToPortfolio 之前的逻辑
-	 *
-	 * 注: D1 schema 已对齐 DO storage schema (2026-06-07), sell_stairs_triggered 持久化也走 D1
-	 *     DO 重启后从 D1 恢复能拿到 V6 sell stairs 状态机, 不会丢
-	 */
-	d1RowToPortfolioRow(row) {
-		return {
-			usdt_balance: row.usdt_balance,
-			sol_holding: row.sol_holding,
-			avg_buy_price: row.avg_buy_price,
-			realized_pnl: row.realized_pnl || 0,
-			last_buy_price: row.last_buy_price,
-			total_spent: row.total_spent,
-			total_sold: row.total_sold || 0,
-			consecutive_dca_buys: row.consecutive_dca_buys || 0,
-			current_month_reset: row.current_month_reset,
-			sell_stairs_triggered: row.sell_stairs_triggered || '[]'
-		};
-	}
-
-	/**
-	 * 持久化 portfolio — 双写 DO storage (热) + D1 (归档)
+	 * 持久化 portfolio — DO storage
 	 */
 	async persistPortfolio() {
 		if (!this.portfolio) return;
@@ -356,36 +318,6 @@ export class TickerHub {
 			});
 		}
 
-		// 2) D1 归档 (副, 失败不影响主) — 跟 DO storage 同一份 schema (portfolio_state 表名 + 13 列对齐)
-		if (this.env.SOL_DCA_DB) {
-			try {
-				await this.env.SOL_DCA_DB.prepare(
-					`INSERT OR REPLACE INTO portfolio_state
-					 (id, usdt_balance, sol_holding, avg_buy_price, last_buy_price,
-					  total_spent, total_sold, realized_pnl, current_month_spent, current_month_reset,
-					  consecutive_dca_buys, sell_stairs_triggered, updated_at)
-					 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
-				)
-					.bind(
-						portfolioRowId,
-						p.usdtBalance,
-						p.solHolding,
-						p.avgBuyPrice,
-						p.lastBuyPrice,
-						p.totalSpent,
-						p.totalSoldUSDT || 0,
-						p.realizedPnL || 0,
-						monthSpentTotal,
-						p.currentMonthReset,
-						p.consecutiveDcaBuys,
-						sellStairsJson,
-						updatedAt
-					)
-					.run();
-			} catch (err) {
-				console.error('[TickerHub] D1 portfolio archive failed:', err);
-			}
-		}
 	}
 
 	/**
@@ -487,7 +419,7 @@ export class TickerHub {
 			return;
 		}
 
-		// 4) Buy / Sell: 写 DO storage + D1 归档 + 广播
+		// 4) Buy / Sell: 写 DO storage + 广播
 		const signal = {
 			id: crypto.randomUUID(),
 			price: this.lastTickerPrice,
@@ -679,30 +611,6 @@ export class TickerHub {
 			});
 		}
 
-		// 2) D1 归档
-		if (this.env.SOL_DCA_DB) {
-			try {
-				await this.env.SOL_DCA_DB.prepare(
-					`INSERT INTO signals (id, price, action, reason, drawdown_pct, profit_pct, usdt_after, sol_after, mode, created_at)
-					 VALUES (?,?,?,?,?,?,?,?,?,?)`
-				)
-					.bind(
-						signal.id,
-						signal.price,
-						signal.action,
-						signal.reason,
-						signal.drawdown_pct,
-						signal.profit_pct,
-						signal.usdt_after,
-						signal.sol_after,
-						signal.mode,
-						signal.created_at
-					)
-					.run();
-			} catch (err) {
-				console.error('[TickerHub] D1 signal archive failed:', err);
-			}
-		}
 	}
 
 	/**
@@ -751,37 +659,6 @@ export class TickerHub {
 			});
 		}
 
-		// 2) D1 归档
-		if (this.env.SOL_DCA_DB) {
-			try {
-				await this.env.SOL_DCA_DB.prepare(
-					`INSERT OR REPLACE INTO trades
-					 (id, cl_ord_id, side, price, amount_usdt, amount_sol, reason, drawdown_pct, multiplier, profit_pct, mode, okx_order_id, okx_state, okx_fee, intended_amount_usdt, created_at)
-					 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-				)
-					.bind(
-						trade.id,
-						trade.cl_ord_id,
-						trade.side,
-						trade.price,
-						trade.amount_usdt,
-						trade.amount_sol,
-						trade.reason,
-						trade.drawdown_pct ?? null,
-						trade.multiplier ?? null,
-						trade.profit_pct ?? null,
-						trade.mode,
-						trade.okx_order_id ?? null,
-						trade.okx_state ?? null,
-						trade.okx_fee ?? null,
-						trade.intended_amount_usdt ?? null,
-						trade.created_at
-					)
-					.run();
-			} catch (err) {
-				console.error('[TickerHub] D1 trade archive failed:', err);
-			}
-		}
 	}
 
 	/**
@@ -853,7 +730,11 @@ export class TickerHub {
 				})
 			]);
 			if (usdt != null) this.portfolio.usdtBalance = usdt;
-			if (sol != null) this.portfolio.solHolding = sol;
+			if (sol != null) {
+				const solTruncated = Math.floor(sol * 1000000) / 1000000;
+				this.portfolio.solHolding = solTruncated;
+				console.log(`[TickerHub] syncBalance: OKX raw=${sol} → floor→${solTruncated} (6dp) | USDT=${usdt} | mode=${this.mode}`);
+			}
 			await this.persistPortfolio();
 			// 推送完整 portfolio 快照 (不是只 usdt/sol), 让前端 trade/init_dca 后能看到 lastBuyPrice/avgBuyPrice/totalSpent 变化
 			this.broadcastBrowser({
@@ -884,8 +765,23 @@ export class TickerHub {
 
 	/**
 	 * 报警（带 try-catch）
+	 * Cooldown 查 DO storage (state.storage.sql) — DO 重启后仍然有效
 	 */
 	sendAlertSafe(level, title, body) {
+		const cooldownMs = { info: 5 * 60 * 1000, warn: 2 * 60 * 1000 }[level];
+		if (cooldownMs) {
+			const cooldownKey = `${level}:${title}`;
+			const row = this.state.storage.sql
+				.exec('SELECT last_sent FROM alert_cooldowns WHERE key = ?', cooldownKey)
+				.toArray()[0];
+			const lastSent = row?.last_sent || 0;
+			if (Date.now() - lastSent < cooldownMs) return;
+			this.state.storage.sql.exec(
+				'INSERT OR REPLACE INTO alert_cooldowns (key, last_sent) VALUES (?, ?)',
+				cooldownKey,
+				Date.now()
+			);
+		}
 		sendAlert(this.alertUrl, title, body, level).catch((err) =>
 			console.error('[TickerHub] alert failed:', err)
 		);
@@ -952,6 +848,30 @@ export class TickerHub {
 			return Response.json({ trades: this.getRecentTrades(limit) });
 		}
 
+		// /sync-balance — 手动触发 OKX 余额同步，返回完整 state (前端刷新按钮调用)
+		if (path === '/sync-balance' && request.method === 'GET') {
+			try {
+				await this.syncBalanceFromOkx();
+				return Response.json({
+					ok: true,
+					mode: this.mode,
+					portfolio: this.portfolio ? this.snapshotPortfolio() : null,
+					paused: this.isPaused,
+					okxWsState: this.lastOkxWsState,
+					lastTickerPrice: this.lastTickerPrice,
+					lastTickerAt: this.lastTickerAt,
+					recentSignals: this.getRecentSignals(50),
+					recentTrades: this.getRecentTrades(50),
+					sabbath: isSabbath(),
+					missingCredentials: this.missingCredentials,
+					ts: Date.now()
+				});
+			} catch (err) {
+				console.error('[TickerHub] /sync-balance failed:', err);
+				return Response.json({ ok: false, error: err.message }, { status: 500 });
+			}
+		}
+
 		// /debug/okx-balance — 直接调 OKX getBalance, 返回原始响应 (debug 用)
 		if (path === '/debug/okx-balance' && request.method === 'GET') {
 			try {
@@ -974,7 +894,7 @@ export class TickerHub {
 			}
 		}
 
-		// /reset — 清 DO storage + D1 portfolio_state, 重新拉 OKX 真实账户
+		// /reset — 清 DO storage portfolio_state, 重新拉 OKX 真实账户
 		//   use case: 切 live 模式, 历史 demo 脏数据污染计算
 		if (path === '/reset' && request.method === 'POST') {
 			let soldSol = 0;
@@ -984,7 +904,15 @@ export class TickerHub {
 				// 1) 先卖光所有 SOL 换成 USDT (user 要求 reset 走这条路)
 				if (this.missingCredentials.length === 0) {
 					try {
-						const solBalance = await this.okx.getSolBalance();
+						// 优先用 OKX 真实余额，避免 DO state 精度累积误差（DO 里 0.4627，OKX 里 0.462 导致 sell 失败）
+						const okxSolBalance = await this.okx.getSolBalance();
+						const doStateSolBalance = this.portfolio?.solHolding ?? 0;
+						console.log(
+							`[TickerHub] reset: OKX availSol=${okxSolBalance}, DO state solHolding=${doStateSolBalance}, ` +
+							`mode=${this.mode}`
+						);
+						// 直接截 6 位，不用 0.999 buffer（精度已在 OKX sync 时统一截好）
+						const solBalance = Math.round(okxSolBalance * 1000000) / 1000000;
 						if (solBalance > 0.001) {
 							// 1a) 算这次清理卖出的 realizedPnL (用当前 portfolio avgBuyPrice, 不更新到 portfolio state)
 							//   这次卖出后整个 state 清空, 所以这次 P&L 只作 audit / alert 输出, 不入 portfolio_state
@@ -996,21 +924,20 @@ export class TickerHub {
 							await this.okx.marketSell(this.instId, solBalance, clOrdId);
 							soldSol = solBalance;
 							usdtGot = solBalance * this.lastTickerPrice;
-							console.log(`[TickerHub] reset sold ${soldSol} SOL for ~$${usdtGot.toFixed(2)} (cleanup realized ≈ $${cleanupRealized.toFixed(2)})`);
+							console.log(
+								`[TickerHub] reset sold ${soldSol} SOL for ~$${usdtGot.toFixed(2)} (cleanup realized ≈ $${cleanupRealized.toFixed(2)})`
+							);
 							this.sendAlertSafe(
 								'info',
-								'RESET sold all SOL',
-								`${soldSol.toFixed(4)} SOL → ~$${usdtGot.toFixed(2)} USDT @ $${this.lastTickerPrice.toFixed(2)}` +
-									(cleanupRealized
-										? ` (本次清理 realizedPnL ≈ $${cleanupRealized.toFixed(2)}, 不入 portfolio state)`
-										: '')
+								'RESET sold SOL',
+								`${soldSol.toFixed(4)} SOL → ~$${usdtGot.toFixed(2)} USDT @ $${this.lastTickerPrice.toFixed(2)}`
 							);
 							await this.syncBalanceFromOkx();
 						}
-					} catch (err) {
-						sellError = String(err);
-						console.error('[TickerHub] reset sell-all failed:', err);
-						this.sendAlertSafe('error', 'RESET sell-all failed', err.message);
+					} catch (sellErr) {
+						sellError = `sell 失败（OKX 余额不足）: ${sellErr.message}`;
+						console.warn('[TickerHub] reset sell failed:', sellErr.message);
+						// 不 throw，让 reset 继续 — sell 失败不影响清空 DO state
 					}
 				}
 				// demo / live 各自用独立 row id (1 / 2), D1 schema 不加 mode 列
@@ -1018,34 +945,17 @@ export class TickerHub {
 				this.state.storage.sql.exec('DELETE FROM portfolio_state WHERE id = ?', portfolioRowId);
 				this.state.storage.sql.exec('DELETE FROM signals WHERE mode = ?', this.mode);
 				this.state.storage.sql.exec('DELETE FROM trades WHERE mode = ?', this.mode);
-				// D1 reset: 独立 try/catch, D1 是 archive (副), 失败不能阻塞主流程
-				// (D1 表可能因 apply migration 失败/换 binding 临时不存在, 跟 DO storage 同步无关)
-				if (this.env.SOL_DCA_DB) {
-					try {
-						await this.env.SOL_DCA_DB.prepare('DELETE FROM portfolio_state WHERE id = ?')
-							.bind(portfolioRowId)
-							.run();
-						await this.env.SOL_DCA_DB.prepare('DELETE FROM signals WHERE mode = ?').bind(this.mode).run();
-						await this.env.SOL_DCA_DB.prepare('DELETE FROM trades WHERE mode = ?').bind(this.mode).run();
-					} catch (d1Err) {
-						console.warn('[TickerHub] reset D1 cleanup failed (non-fatal, DO storage 已清):', d1Err.message);
-					}
-				}
 				this.portfolio = null;
 				await this.loadPortfolio();
-			// Reset 强制清仓: 不管 OKX sell 成交没, portfolio state 应该是清空状态
-			// (OKX demo 模拟盘余额跟 trade 不挂钩, sync 回来还是显示原 SOL, 这是 OKX 限制)
-			//   - 真实 sell 成功了: OKX 账户里 SOL 真少了, sync 后一致
-			//   - sell 失败 (balance insufficient 等): OKX 没动, 但 user reset 意图明确
-			//     把 portfolio.solHolding 强制设 0, 不让老数据污染新策略
-			// 同时清掉 hold 内存缓冲 + rate limit 状态 — 跟 "Reset" 的"全部清空"语义一致
+			// 清 hold 内存缓冲 + rate limit 状态
 			this.recentHoldSignals = [];
 			this.lastHoldSignalAt = 0;
 			this.lastHoldSignalPrice = 0;
+			// 如果 sell 失败，不强制清 solHolding — 让 loadPortfolio() 拉到的 OKX 真实余额生效
+			// 如果 sell 成功，loadPortfolio() 会用 syncBalanceFromOkx() 更新余额，两者都对
 			if (this.portfolio) {
 				this.portfolio = {
 					...this.portfolio,
-					solHolding: 0,
 					avgBuyPrice: null,
 					lastBuyPrice: null,
 					totalSpent: 0,
