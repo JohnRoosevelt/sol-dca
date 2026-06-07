@@ -169,6 +169,11 @@ export class TickerHub {
 		this.recentHoldSignals = []; // 内存 hold 环形缓冲 (前端 fold count 用, 不写 storage)
 		this.lastHoldSignalAt = 0; // rate limit: 上次 emit hold 的 timestamp
 		this.lastHoldSignalPrice = 0; // rate limit: 上次 emit hold 时的价格 (算价格变化用)
+		// P0-1 in-flight lock: OKX WS 推送 ~3.2Hz (≈310ms 间隔), 但 executeBuy/executeSell
+		//   await OKX API 100-500ms. 上一笔 buy/sell 还没结算时, 第二个 ticker 进来读
+		//   到旧 lastBuyPrice 会触发 duplicate buy (silent 2x). isTrading 守门期间跳过
+		//   decide + execute, 防止并发下单. Ticker WS 广播不走这把锁, 价格照常推.
+		this.isTrading = false;
 
 		// 启动: 建 DO storage 表
 		this.state.blockConcurrencyWhile(async () => {
@@ -376,32 +381,60 @@ export class TickerHub {
 		if (isSabbath()) return;
 		if (!this.portfolio) return;
 
-		const todayMonthKey = MONTH_KEY_FMT(new Date());
-		maybeResetMonth(this.portfolio, todayMonthKey);
+		// P0-1 in-flight lock: 上一次 buy/sell 还在 await OKX API 时, 后续 ticker 跳过 decide+execute
+		//   锁放在此处 (paused/sabbath/portfolio 守卫之后) — paused / sabbath 仍走早 return,
+		//   不污染 isTrading 状态. WS ticker 广播 (上方 365-372) 永远不走这把锁, 价格照常推.
+		if (this.isTrading) return;
+		this.isTrading = true;
+		try {
+			const todayMonthKey = MONTH_KEY_FMT(new Date());
+			maybeResetMonth(this.portfolio, todayMonthKey);
 
-		const decision = decide(
-			{ last: this.lastTickerPrice, open24h: parseFloat(d.open24h), ts: parseInt(d.ts) },
-			this.portfolio,
-			todayMonthKey
-		);
+			const decision = decide(
+				{ last: this.lastTickerPrice, open24h: parseFloat(d.open24h), ts: parseInt(d.ts) },
+				this.portfolio,
+				todayMonthKey
+			);
 
-		// 3) Hold: 不写 storage, 不广播, 只在内存 hold 环形缓冲累积 (前端 fold count 用)
-		if (decision.action === 'hold') {
-			// Rate limit: 30s 心跳 OR 价格移动 > 0.2% 才记一条
-			//   避免 OKX ticker 每秒 10 次推送刷屏 (FIFO 50 条本来 5 秒就刷一次)
-			const now = Date.now();
-			const elapsedMs = now - this.lastHoldSignalAt;
-			const priceChangePct = this.lastHoldSignalPrice > 0
-				? Math.abs((this.lastTickerPrice - this.lastHoldSignalPrice) / this.lastHoldSignalPrice) * 100
-				: Infinity;
-			if (elapsedMs < HOLD_HEARTBEAT_MS && priceChangePct < HOLD_PRICE_CHANGE_PCT) {
-				// 限流: 不 emit
+			// 3) Hold: 不写 storage, 不广播, 只在内存 hold 环形缓冲累积 (前端 fold count 用)
+			if (decision.action === 'hold') {
+				// Rate limit: 30s 心跳 OR 价格移动 > 0.2% 才记一条
+				//   避免 OKX ticker 每秒 10 次推送刷屏 (FIFO 50 条本来 5 秒就刷一次)
+				const now = Date.now();
+				const elapsedMs = now - this.lastHoldSignalAt;
+				const priceChangePct = this.lastHoldSignalPrice > 0
+					? Math.abs((this.lastTickerPrice - this.lastHoldSignalPrice) / this.lastHoldSignalPrice) * 100
+					: Infinity;
+				if (elapsedMs < HOLD_HEARTBEAT_MS && priceChangePct < HOLD_PRICE_CHANGE_PCT) {
+					// 限流: 不 emit — finally 会把 isTrading 清回 false
+					return;
+				}
+				const holdSignal = {
+					id: crypto.randomUUID(),
+					price: this.lastTickerPrice,
+					action: 'hold',
+					reason: decision.reason,
+					drawdown_pct: decision.drawdownPct ?? null,
+					profit_pct: decision.profitPct ?? null,
+					usdt_after: this.portfolio.usdtBalance,
+					sol_after: this.portfolio.solHolding,
+					mode: this.mode,
+					created_at: new Date().toISOString()
+				};
+				this.recentHoldSignals.unshift(holdSignal);
+				if (this.recentHoldSignals.length > SIGNAL_FIFO_LIMIT) {
+					this.recentHoldSignals.length = SIGNAL_FIFO_LIMIT;
+				}
+				this.lastHoldSignalAt = now;
+				this.lastHoldSignalPrice = this.lastTickerPrice;
 				return;
 			}
-			const holdSignal = {
+
+			// 4) Buy / Sell: 写 DO storage + 广播
+			const signal = {
 				id: crypto.randomUUID(),
 				price: this.lastTickerPrice,
-				action: 'hold',
+				action: decision.action,
 				reason: decision.reason,
 				drawdown_pct: decision.drawdownPct ?? null,
 				profit_pct: decision.profitPct ?? null,
@@ -410,39 +443,21 @@ export class TickerHub {
 				mode: this.mode,
 				created_at: new Date().toISOString()
 			};
-			this.recentHoldSignals.unshift(holdSignal);
-			if (this.recentHoldSignals.length > SIGNAL_FIFO_LIMIT) {
-				this.recentHoldSignals.length = SIGNAL_FIFO_LIMIT;
+			await this.persistSignal(signal);
+			this.broadcastBrowser({ type: 'signal', ...signal });
+			// 重置 hold rate limit: 下一条 hold 立刻 emit (让 user 看到 "buy/sell 之后回到 hold")
+			this.lastHoldSignalAt = 0;
+			this.lastHoldSignalPrice = 0;
+
+			// 5) 执行 buy / sell
+			if (decision.action === 'buy' && decision.amountUsdt >= 1) {
+				await this.executeBuy(decision, signal);
+			} else if (decision.action === 'sell' && decision.amountSol >= 0.001) {
+				await this.executeSell(decision, signal);
 			}
-			this.lastHoldSignalAt = now;
-			this.lastHoldSignalPrice = this.lastTickerPrice;
-			return;
-		}
-
-		// 4) Buy / Sell: 写 DO storage + 广播
-		const signal = {
-			id: crypto.randomUUID(),
-			price: this.lastTickerPrice,
-			action: decision.action,
-			reason: decision.reason,
-			drawdown_pct: decision.drawdownPct ?? null,
-			profit_pct: decision.profitPct ?? null,
-			usdt_after: this.portfolio.usdtBalance,
-			sol_after: this.portfolio.solHolding,
-			mode: this.mode,
-			created_at: new Date().toISOString()
-		};
-		await this.persistSignal(signal);
-		this.broadcastBrowser({ type: 'signal', ...signal });
-		// 重置 hold rate limit: 下一条 hold 立刻 emit (让 user 看到 "buy/sell 之后回到 hold")
-		this.lastHoldSignalAt = 0;
-		this.lastHoldSignalPrice = 0;
-
-		// 5) 执行 buy / sell
-		if (decision.action === 'buy' && decision.amountUsdt >= 1) {
-			await this.executeBuy(decision, signal);
-		} else if (decision.action === 'sell' && decision.amountSol >= 0.001) {
-			await this.executeSell(decision, signal);
+		} finally {
+			// P0-1: 不管 buy/sell 成功/失败, isTrading 都必须释放, 否则后续 ticker 永远被卡住
+			this.isTrading = false;
 		}
 	}
 
