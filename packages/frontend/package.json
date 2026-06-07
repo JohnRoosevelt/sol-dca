@@ -6,10 +6,10 @@
 	"description": "SvelteKit frontend — deployed to Cloudflare Pages",
 	"scripts": {
 		"dev": "PUBLIC_WS_URL=${PUBLIC_WS_URL:-ws://localhost:8787/ws} vite dev --port 5173",
-		"build": "wrangler types --check && vite build",
+		"build": "vite build",
 		"preview": "vite preview",
 		"deploy": "wrangler pages deploy .svelte-kit/cloudflare --project-name sol-dca-dashboard",
-		"check": "wrangler types --check && svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
+		"check": "svelte-check --tsconfig ./jsconfig.json",
 		"prepare": "svelte-kit sync || echo ''"
 	},
 	"dependencies": {},

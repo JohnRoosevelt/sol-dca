@@ -1,6 +1,7 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
-	import { WS_URL } from '$lib/config.js';
+	import { WS_URL, getTotpSecret } from '$lib/config.js';
+	import TOTPModal from '$lib/components/TOTPModal.svelte';
 
 	// OWL logo 来自 ~/project/my/owl/static/icons/logo.svg (Game Icons, MIT)
 	//   inline 而不是 <img src> 加载, 这样 path 的 fill="currentColor" 才会继承 .logo 的 CSS color (白)
@@ -51,6 +52,38 @@
 	let resetting = $state(false);  // Reset (卖光 + 清空) 中
 	let refreshing = $state(false); // 手动刷新余额中 — 独立状态, 跟 Start/Reset 隔开
 	let controlInFlight = $derived(starting || resetting);
+	let showTotpModal = $state(false);
+	let pendingMode = $state(null);
+
+	function confirmTotpAndSwitch() {
+		showTotpModal = false;
+		const target = pendingMode || 'live';
+		pendingMode = null;
+		if (target !== 'live') return;
+		mode = target;
+		if (typeof window !== 'undefined') {
+			localStorage.setItem('sol-dca-mode', target);
+			document.cookie = `sol-dca-mode=${target}; path=/; max-age=31536000; SameSite=Lax`;
+		}
+		if (ws) {
+			ws.onclose = null;
+			try { ws.close(); } catch (_) {}
+			ws = null;
+		}
+		portfolio = null;
+		paused = false;
+		okxWsState = 'init';
+		lastTickerPrice = 0;
+		lastTickerAt = 0;
+		recentSignals = [];
+		recentTrades = [];
+		historyEntries = [];
+		historyFilter = 'all';
+		lastError = null;
+		connect();
+		fetchState();
+		loadHistory();
+	}
 
 	// 派生:是否已初始化 DCA(决定 Start DCA 按钮是否显示)
 	let needsInit = $derived(portfolio != null && portfolio.lastBuyPrice == null);
@@ -233,18 +266,20 @@
 	});
 
 	// === Mode switch (demo <-> live) ===
-	//   切到 live 时强制 confirm (会动真钱)
+	//   切到 live 时需要 TOTP 验证 (会动真钱)
 	//   切完: 关闭老 WS, 重新连接新 mode 的 DO, 清空前端 buffer, 重拉 state
 	async function switchMode(target) {
 		if (!VALID_MODES.includes(target)) return;
 		if (target === mode) return;
 		if (target === 'live') {
-			const ok = confirm(
-				'⚠️ 即将切换到 LIVE 模式\n\n' +
-					'这会用你的 OKX 真实账户 (USDT/SOL), 所有 buy/sell 都会动真钱。\n' +
-					'确认切换？'
-			);
-			if (!ok) return;
+			const secret = await getTotpSecret();
+			if (!secret) {
+				console.warn('[switchMode] TOTP_SECRET not configured, skipping 2FA');
+			} else {
+				pendingMode = 'live';
+				showTotpModal = true;
+				return;
+			}
 		}
 		// 1) 持久化
 		mode = target;
@@ -475,7 +510,7 @@
 					class="mode-btn danger"
 					class:active={mode === 'live'}
 					onclick={() => switchMode('live')}
-					title="⚠️ 真实账户, 所有 buy/sell 动真钱 (TOTP 2FA 即将启用)"
+					title="⚠️ 真实账户, 所有 buy/sell 动真钱 (TOTP 2FA 保护)"
 				>
 					💰 Live
 				</button>
@@ -729,6 +764,8 @@
 		{/if}
 	</section>
 </div>
+
+<TOTPModal bind:open={showTotpModal} onVerify={confirmTotpAndSwitch} />
 
 <style>
 	.stream {

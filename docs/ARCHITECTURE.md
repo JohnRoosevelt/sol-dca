@@ -726,3 +726,30 @@ Service binding 等效于一个 Cloudflare 内部 HTTP 客户端。
 | `packages/frontend/src/lib/config.js` | WS_URL 环境变量注入 |
 | `packages/frontend/wrangler.toml` | Frontend Pages 部署配置 |
 | `packages/frontend/svelte.config.js` | SvelteKit + Cloudflare adapter 配置 |
+
+---
+
+## 附录：SvelteKit + Cloudflare Pages 环境变量教训（2026-06-07）
+
+### `$env/static/public` vs `$env/dynamic/public`
+
+| 类型 | 读取时机 | 读取来源 | 适用场景 |
+|------|---------|---------|---------|
+| `$env/static/public` | **build 时** bake 进 JS bundle | `.env` / `.env.production` 等 dotenv 文件 | build 时必须确定的值（PUBLIC_WS_URL） |
+| `$env/dynamic/public` | **运行时**（每次访问） | Cloudflare Pages 环境变量（`wrangler secret put` / Pages Dashboard） | 密钥、不可 bake 的值 |
+
+**踩坑记录**：
+- `PUBLIC_WS_URL`：需要 build 时确定 → 用 `$env/static/public`，在 `.env.production` 里写值
+- `PUBLIC_TOTP_SECRET`：是密钥不能用 `[vars]` 明文放 + 需要运行时注入 → 用 `$env/dynamic/public`，通过 `wrangler secret put` 注入
+
+### Cloudflare Pages 的 env 文件分层
+
+| 文件 | 谁读 | 用途 |
+|------|------|------|
+| `.env` | `vite dev`（SvelteKit dev server） | 本地 vite 开发 |
+| `.env.production` | `vite build`（build 时） | 本地 prod build 时 bake 进 bundle |
+| `.dev.vars` | `wrangler dev`（Cloudflare Workers dev） | Cloudflare Workers 本地开发 |
+| `wrangler.toml [vars]` | **运行时**，但仅限 Workers（DO/Worker） | Cloudflare Workers 运行时注入 |
+| `wrangler secret put` | **运行时**（Pages + Workers） | 密钥类值，**不进 bundle** |
+
+**注意**：`vite dev` **不读** `.dev.vars`（那是 wrangler 专用的）；`.env.production` **不读** `.dev.vars`。各走各的。
