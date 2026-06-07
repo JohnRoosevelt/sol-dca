@@ -66,6 +66,11 @@ const ALERT_COOLDOWN_MS = {
 	warn: 2 * 60 * 1000
 	// error 故意没有 → 紧急事件不限
 };
+// NOTE: alertCooldowns is kept in-memory only (JS Map). Durable Objects do not
+// persist in-memory state across cold starts or version updates — the memory is
+// wiped. For true persistence, this should be migrated to state.storage with a
+// KV-like key. Until then, cooldown may fire again after DO restarts, which is
+// acceptable for non-critical info/warn alerts.
 const alertCooldowns = new Map(); // key = `${level}:${title}` → last sent timestamp
 
 /**

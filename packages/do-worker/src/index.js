@@ -9,28 +9,53 @@
  * 部署：单独 worker（不被 SvelteKit Pages 包），DO 跟 WS 都在这。
  * 前端 Pages Function 走 service binding `SOL_DCA_WORKER.fetch(req)` 调进来。
  *
+ * Demo / Live 物理隔离：
+ *   - 同一个 TickerHub class, 但每个 mode 一个独立 DO instance
+ *   - 用 idFromName(`sol-usdt-demo` / `sol-usdt-live`) 区分
+ *   - TickerHub constructor 从 state.id.name 推 this.mode = 'demo' | 'live'
+ *   - 数据完全独立 (portfolio / signals / trades / okx client / WS 连接)
+ *
  * 路由：
- *   GET  /ws              → 升级 WS，TickerHub 处理
- *   GET  /state           → TickerHub 当前 portfolio + ticker
+ *   GET  /ws              → 升级 WS（?mode=demo|live 选 DO）
+ *   GET  /state           → TickerHub portfolio + ticker
  *   POST /control         → TickerHub 控制指令
+ *   POST /reset           → 清 portfolio + 历史
  *   GET  /health          → 健康检查
  */
 
 export { TickerHub } from './ticker-hub.js';
 
-const HUB_NAME = 'sol-usdt';
+const HUB_NAMES = {
+	demo: 'sol-usdt-demo',
+	live: 'sol-usdt-live'
+};
+const DEFAULT_MODE = 'demo';
+
+/** @param {string | null} mode */
+function resolveMode(mode) {
+	if (mode === 'live' || mode === 'demo') return mode;
+	return DEFAULT_MODE;
+}
+
+/** @param {string} mode */
+function hubNameFor(mode) {
+	return HUB_NAMES[mode] || HUB_NAMES[DEFAULT_MODE];
+}
 
 export default {
 	async fetch(request, env, ctx) {
 		const url = new URL(request.url);
 		const path = url.pathname;
+		const mode = resolveMode(url.searchParams.get('mode'));
+		const hubName = hubNameFor(mode);
 
 		// 健康检查（cheap, 不走 DO）
 		if (path === '/health') {
 			return new Response(JSON.stringify({
 				ok: true,
 				ts: Date.now(),
-				hubName: HUB_NAME
+				hubName,
+				mode
 			}), {
 				headers: { 'Content-Type': 'application/json' }
 			});
@@ -45,16 +70,17 @@ export default {
 		}
 
 		const stub = env.SOL_DCA_TICKER_HUB.get(
-			env.SOL_DCA_TICKER_HUB.idFromName(HUB_NAME)
+			env.SOL_DCA_TICKER_HUB.idFromName(hubName)
 		);
 
 		// WS 路由 — 透传原始 request（含 Upgrade header）
+		//   mode 通过 query string 传: /ws?mode=demo
 		if (path === '/ws' && request.headers.get('Upgrade') === 'websocket') {
 			return stub.fetch(request);
 		}
 
 		// HTTP 路由 — 转发到 DO 内部路由
-		if (path === '/state' || path === '/control' || path === '/recent_signals' || path === '/recent_trades') {
+		if (path === '/state' || path === '/control' || path === '/recent_signals' || path === '/recent_trades' || path === '/reset' || path === '/debug/okx-balance') {
 			return stub.fetch(new Request(
 				`https://do${path}${url.search}`,
 				{
@@ -68,7 +94,18 @@ export default {
 		return new Response(
 			JSON.stringify({
 				error: 'not found',
-				available: ['/health', '/ws (websocket upgrade)', '/state', '/recent_signals', '/recent_trades', '/control (POST)']
+				mode,
+				hubName,
+				available: [
+					'/health',
+					'/ws?mode=demo|live (websocket upgrade)',
+					'/state?mode=demo|live',
+					'/recent_signals?mode=demo|live',
+					'/recent_trades?mode=demo|live',
+					'/control?mode=demo|live (POST)',
+					'/reset?mode=demo|live (POST)',
+					'/debug/okx-balance?mode=demo|live (GET)'
+				]
 			}),
 			{ status: 404, headers: { 'Content-Type': 'application/json' } }
 		);

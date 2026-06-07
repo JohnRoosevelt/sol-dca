@@ -12,7 +12,7 @@
 #                     (Pages dashboard 设 env var, 这里只声明 shape)
 
 name = "sol-dca-dashboard"
-compatibility_date = "2026-06-06"
+compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_als"]
 pages_build_output_dir = ".svelte-kit/cloudflare"
 

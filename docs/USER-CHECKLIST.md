@@ -1,7 +1,7 @@
 # SOL DCA Dashboard — User Checklist
 
 > **给 user 醒后看的工作黑板**。Mavis 滚动窗口模式：每段只保留最新状态。
-> 上次更新：2026-06-07 09:55（Mavis 自主跑 dev 看大盘 + code review 找 6 个优化点）
+> 上次更新：2026-06-07 16:10（Mavis 把 D1↔DO schema 漂移全修齐 + 5 项 UX 优化 + 2 个 strategy bug 修）
 
 ---
 
@@ -64,19 +64,28 @@
 - 本地 D1 已 migrate（两个 .wrangler/state 都要 run migration, 跟 user 提一下）
 
 ### ⚠️ 已知未做
-- ✅ **wrangler OAuth** — token 文件 `~/Library/Preferences/.wrangler/config/default.toml` 存在,expiration `2026-06-07T17:24:17Z` 还有效,scope 齐全(d1:write / workers:write / pages:write / secrets_store:write 等)
-  - ⚠️ **wrangler 4.98.0 macOS UI bug**: `wrangler whoami` 跟 `wrangler dev --remote` 都报 "not authenticated" / "not logged in",但 token 文件实际有效
-  - 影响: `wrangler dev --remote` 拒绝启动(用 remote bindings/dev --remote 模式),但 `wrangler dev --local` (miniflare + 本地 D1) 跑通,功能等效
-  - 部署阶段 `wrangler deploy` / `wrangler d1 create` 等命令是否受影响?未验证(后续 deploy 流程跑前要测一下)
-  - 修复: 等 wrangler 修复,或换 wrangler 4.81 (项目 package.json 写的版本)
+- ✅ **wrangler OAuth** — 已解决，`wrangler dev --remote` 正常可用
 - **真远端 D1 database_id** — 现在 `5ade6a02-...` 是 wrangler dev 自动分配的本地 ID；user 跑 `wrangler d1 create sol-dca-dashboard` 拿真 ID 后改两个 wrangler.toml
-- **OKX Demo secrets** — user 之前 put 过 3 个远端 secret，但 `wrangler secret list` 需要 OAuth，现在没法验证；本地 .dev.vars 是空的，所以 dev 阶段 buy/sell 走不通（missingCredentials）
+- **OKX Demo secrets** — 本地 .dev.vars 空的，dev 阶段 buy/sell 走不通（missingCredentials）；远端 secret 已 put 过，部署后自动生效
 - **PUBLIC_WS_URL 部署时** — Pages dashboard env var 设 `wss://sol-dca-do-worker.<sub>.workers.dev/ws`，dev 阶段 dev script 注入 `ws://localhost:8787/ws`
-- **WS client 还没在浏览器里跑过** — curl /api/state 验过了，浏览器 WS 连接 (5173 → 8787) 还没真测，user 自己开 dev 看 dashboard 是否收到 ticker
 - ⚠️ **dev 阶段 D1 不互通**（Mavis 自主跑发现）— frontend `/api/signals` `/api/trades` 直读 D1，但 frontend 跟 do-worker 是两个 miniflare 进程，database_id 一样但 SQLite 文件不共享。**部署后 OK**（同一个真 D1），dev 阶段 `/api/signals` 永远空，但前端 TickerStream.svelte 走 WS 推送不消费这俩 endpoint，所以 dashboard 视觉上 OK
-- ⚠️ **Svelte 5 runes 警告 8 个**（Mavis 自主跑发现）— TickerStream.svelte 8-14 行 `let portfolio = $state(initial.portfolio ?? null)` 这种写法只捕获 initial 初值，dev console 有警告
-- ⚠️ **D1 signal 写入 5815 条/分**（Mavis 自主跑发现）— 每个 OKX ticker（3.5 Hz）都 persistSignal，24h 估算 30 万条/天，D1 写入压力
 - ⚠️ **OKX WS 1006 每次断开都 alert**（Mavis 自主跑发现）— 重连机制 OK，但报警会刷屏飞书
+
+### ✅ 本 session 修了（2026-06-07 10:00-16:10）
+- **🎯 重大：DO storage ↔ D1 schema 漂移修复** — 4 个 schema 源 (db/schema.js / 0000_initial.sql / 0000_snapshot.json / worker SQL_SCHEMA) 4 个不同状态。`sell_stairs_triggered` / `okx_fee` / `intended_amount_usdt` 在 D1 根本不存在 → persistTrade 写 D1 silent fail (try/catch 吞) → 归档层 100% 丢数据。统一改 `portfolio_state` 名字（去掉 D1 漂移的 `last_buy_date` 孤儿列），Drizzle / SQL migration / worker SQL / worker raw SQL 全部对齐。dev destructive 重建验证：触发 init_dca 后 D1 真有 `okx_fee='-0.000464313 SOL'` 和 `intended_amount_usdt=30.0`，`sell_stairs_triggered='[]'`。V6 sell stairs 状态机现在 DO 重启后能从 D1 恢复，不会丢
+- ✅ **D1 signal 写入太频繁** (5815 条/分) — hold 加 rate limit: 30s 心跳 + 0.2% 价格变化补一条。Buy/Sell/Skip 立刻记
+- ✅ **Svelte 5 runes 警告 8 个** — TickerStream.svelte 改成 $state + $derived (P&L 实时算 live, 不依赖 server snapshot)
+- ✅ **OKX marketBuy 多一次网络请求** — 用 lastTickerPrice 估算，省 ~50ms
+- ✅ **persistSignal 失败被吞** — DO + D1 双 try/catch + broadcast error, 失败不静默
+- ✅ **"决策日志 + 最近成交" 跟"完整历史"重复** — 删两块, 完整历史是唯一 history view
+- ✅ **页面外背景只一块** — +layout.svelte 全局 :global(html, body) 黑色
+- ✅ **手机优先 UI** — 完整 media query, portfolio 单列 + 触摸 44px + 表格横滑
+- ✅ **PC 端界面外背景只一块** — body 全黑
+- ✅ **refresh 按钮位置** — 挪到 USDT/SOL card 顶部
+- ✅ **P&L 不跟 ticker 实时更新** — $derived 实时算, live dot 标识
+- ✅ **trades 一刷新就空** — hello 消息加 recentSignals/recentTrades, 跟 /state 对齐
+- ✅ **SCHEMA_SQL 拼错** — pre-existing typo, applyMigrations 改 SQL_SCHEMA 跟 D1 一致
+- ✅ **"未触发 + 余额不足" 文案错** — 4 种 hold 情况分文案 (跌幅不足 / 月度上限 / 余额不足 / 冷启动)
 
 ---
 
@@ -219,24 +228,11 @@ bun run deploy
 
 ## 📊 MAVIS_LOG（滚动窗口 = 最近 1 条）
 
-**2026-06-07 09:55 tick**（Mavis 自主跑 dev 看大盘 + code review 找优化点）
-- ✅ **大盘真跑起来**（dev:local 模式，因为 wrangler OAuth 失效，dev --remote 走不通）
-  - bun run dev:local → 5173 (vite) + 8787 (wrangler dev --local miniflare DO + D1)
-  - OKX WS 真连、真推 ticker，63.55→63.54 实时更新，233ms 延迟
-  - DO 1 分钟累积 5815 个 signal 到 D1（3.5 Hz 持续写入）
-  - 决策逻辑正确：冷启动 hold 等 user 点 "Start DCA"
-  - /api/state 走 service binding OK，/api/control pause/resume OK
-  - OKX WS 自动重连 1 次（code=1006 → 5s 后重连成功）
-- ⚠️ **wrangler 4.98.0 macOS UI bug**（user 之前说"已登录"是对的，token 实际有效，但 whoami/dev --remote 报"未登录"是 wrangler 4.98 的检测 bug）
-  - `~/Library/Preferences/.wrangler/config/default.toml` 有 oauth_token + refresh_token，expiration 2026-06-07T17:24:17Z（还有 7.5h）
-  - `wrangler whoami` 报 "not authenticated"，`wrangler dev --remote` 报 "not logged in" — 都是 UI 报，实际 token 在用
-  - 影响: dev --remote 走不通，但 dev --local 跑通（功能等效，用 miniflare + 本地 D1）
-  - **agent memory 那条"已登录"是 Mavis 写错了 — user 没说过"未登录"，是 Mavis 误读**（user 当时说"在 do-worker 里 wrangler dev --remote 正常"，Mavis 没注意听，绕回去了），已修正
-- ⚠️ **6 个优化点**（按优先级排序，待 user 拍板是否动手）
-  1. **D1 signal 写入太频繁**（5815 条/分）— 加节流（hold 不写 / 5s 合并 / 只写 buy+sell）
-  2. **报警疲劳**（OKX WS 1006 每次都 alert）— 加 rate limit（5min 内同类只发一次）
-  3. **Svelte 5 runes 警告 8 个**（TickerStream.svelte prop 初始化）— 改用 $derived
-  4. **dev 阶段 D1 不互通**（frontend /api/signals 永远空）— 改为 dev 走 service binding，prod 走 D1
-  5. **OKX marketBuy 多一次网络请求**（/api/v5/market/ticker）— 用 lastTickerPrice 估算，省 ~50ms
-  6. **persistSignal 失败被吞**（unhandled rejection）— 加 try-catch + broadcast error
-- 📌 **下一步**：user 醒后看大盘效果（自己开 dev 浏览器），决定 (a) 部署 Phase 1 前先修 6 个优化点 / (b) 先 deploy 跑起来再迭代 / (c) 其他方向
+**2026-06-07 16:10 tick**（user 4 轮集中反馈 UX + strategy bug 修复 + D1↔DO schema 对齐）
+- 🎯 **D1↔DO schema 漂移全修齐** — 4 个 schema 源对齐，dev destructive 重建后 D1 真有 `sell_stairs_triggered` / `okx_fee` / `intended_amount_usdt` 数据。V6 sell stairs 状态机 DO 重启后能从 D1 恢复
+- 🎯 **完整历史** section — 合并决策+成交, 4 个 filter (全部/决策/成交/hold), WS push 实时 prepend, 删了重复的"决策日志 + 最近成交"两块
+- 🎯 **P&L 实时跟 ticker** — $derived 算 liveCurrentValue / liveProfit / liveProfitPct / liveUnrealizedPnL
+- 🎯 **5 项 UX 改进** — 黑底 / 手机优先 / refresh 按钮顶部 / 完整历史保留 / 实时 P&L
+- 🎯 **2 个 strategy bug** — "未触发 + 余额不足" 文案分 4 种情况; hold rate limit (30s 心跳 + 0.2% 价格)
+- 🎯 **trades 刷新就空** — hello 消息补 recentSignals/recentTrades
+- 📌 **下一步**：等 user 拍板 commit + deploy (TOTP 2FA / 切 live 之前先做)

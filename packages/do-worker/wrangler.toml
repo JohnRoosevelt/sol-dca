@@ -18,7 +18,7 @@
 
 name = "sol-dca-do-worker"
 main = "src/index.js"
-compatibility_date = "2026-06-06"
+compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_als"]
 workers_dev = true
 

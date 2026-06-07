@@ -12,16 +12,17 @@ CREATE TABLE `klines` (
 --> statement-breakpoint
 CREATE TABLE `portfolio_state` (
 	`id` integer PRIMARY KEY NOT NULL,
-	`usdt_balance` real DEFAULT 7000 NOT NULL,
+	`usdt_balance` real DEFAULT 0 NOT NULL,
 	`sol_holding` real DEFAULT 0 NOT NULL,
 	`avg_buy_price` real,
 	`last_buy_price` real,
-	`last_buy_date` text,
 	`total_spent` real DEFAULT 0 NOT NULL,
 	`total_sold` real DEFAULT 0 NOT NULL,
+	`realized_pnl` real DEFAULT 0 NOT NULL,
 	`current_month_spent` real DEFAULT 0 NOT NULL,
 	`current_month_reset` text,
 	`consecutive_dca_buys` integer DEFAULT 0 NOT NULL,
+	`sell_stairs_triggered` text DEFAULT '[]' NOT NULL,
 	`updated_at` text NOT NULL
 );
 --> statement-breakpoint
@@ -52,6 +53,8 @@ CREATE TABLE `trades` (
 	`mode` text DEFAULT 'demo' NOT NULL,
 	`okx_order_id` text,
 	`okx_state` text,
+	`okx_fee` text,
+	`intended_amount_usdt` real,
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint

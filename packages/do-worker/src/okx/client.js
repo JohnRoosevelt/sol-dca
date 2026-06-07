@@ -128,15 +128,31 @@ export class OkxClient {
 			const ticker = await this.publicRequest('/api/v5/market/ticker', { instId });
 			price = parseFloat(ticker[0].last);
 		}
-		const sz = (amountUsdt / price).toFixed(4);
+		// OKX V5 spot market buy: sz 是 quote 币 (USDT) 数量, tgtCcy=quote_ccy 显式声明
+		// 不传 tgtCcy 时 OKX demo 实际把它当 quote 处理, 但官方文档说 default base_ccy
+		// — 显式写 quote_ccy 避免歧义
+		const sz = amountUsdt.toFixed(2);
 		return this.privateRequest('POST', '/api/v5/trade/order', {
 			instId,
 			tdMode: 'cash',
 			side: 'buy',
 			ordType: 'market',
+			tgtCcy: 'quote_ccy',
 			sz,
 			clOrdId
 		});
+	}
+
+	/**
+	 * 查订单详情 — 拿真实 fill 数据 (accFillSz, avgPx, fillSz, fee)
+	 * 用途: executeBuy/executeSell 下单后, trade 表不再写预算值, 用真实 fill 覆盖
+	 * @param {string} instId e.g. 'SOL-USDT'
+	 * @param {string} ordId OKX 订单 ID
+	 * @returns {Promise<Object|null>} OKX 订单对象, null if not found
+	 */
+	async getOrderDetail(instId, ordId) {
+		const data = await this.privateRequest('GET', `/api/v5/trade/order?ordId=${encodeURIComponent(ordId)}&instId=${encodeURIComponent(instId)}`);
+		return data?.[0] || null;
 	}
 
 	/**
@@ -165,11 +181,16 @@ export class OkxClient {
 
 	/**
 	 * 查 USDT 余额
+	 * OKX V5 /api/v5/account/balance 返回: data = [{ details: [{ ccy, availBal, ... }] }]
+	 * ccy 列表在 details 数组里, 不是 data 数组
 	 */
 	async getUsdtBalance() {
 		const data = await this.getBalance();
-		const entry = data.find((d) => d.ccy === 'USDT');
-		return entry ? parseFloat(entry.availBal) : 0;
+		for (const account of data) {
+			const entry = account.details?.find((d) => d.ccy === 'USDT');
+			if (entry) return parseFloat(entry.availBal);
+		}
+		return 0;
 	}
 
 	/**
@@ -177,8 +198,11 @@ export class OkxClient {
 	 */
 	async getSolBalance() {
 		const data = await this.getBalance();
-		const entry = data.find((d) => d.ccy === 'SOL');
-		return entry ? parseFloat(entry.availBal) : 0;
+		for (const account of data) {
+			const entry = account.details?.find((d) => d.ccy === 'SOL');
+			if (entry) return parseFloat(entry.availBal);
+		}
+		return 0;
 	}
 }
 
@@ -199,10 +223,11 @@ export class OkxCredentialsMissingError extends Error {
 /**
  * 探测 env 里 OKX 凭证是否齐全（不抛错，只返回缺失 key 列表）
  * @param {any} env
+ * @param {boolean} [forceMode] 可选 — 强制 demo / live, 跳过 env OKX_DEMO_MODE 检查
  * @returns {string[]} missing env var names (empty = OK)
  */
-export function checkOkxCredentials(env) {
-	const isDemo = env.OKX_DEMO_MODE !== '0';
+export function checkOkxCredentials(env, forceMode) {
+	const isDemo = forceMode != null ? forceMode : env.OKX_DEMO_MODE !== '0';
 	const missing = [];
 	if (isDemo) {
 		if (!env.OKX_DEMO_API_KEY) missing.push('OKX_DEMO_API_KEY');
@@ -230,9 +255,11 @@ export function checkOkxCredentials(env) {
  * 调用方应该在调 buy/sell 前用 checkOkxCredentials() 探一下
  *
  * @param {any} env
+ * @param {boolean} [forceMode] 可选 — 强制 demo / live, 跳过 OKX_DEMO_MODE env 检查
+ *   用于 demo / live 两个 DO instance 各自拿对应那套 credentials
  */
-export function createOkxClient(env) {
-	const isDemo = env.OKX_DEMO_MODE !== '0';
+export function createOkxClient(env, forceMode) {
+	const isDemo = forceMode != null ? forceMode : env.OKX_DEMO_MODE !== '0';
 	const creds = isDemo
 		? {
 				apiKey: env.OKX_DEMO_API_KEY || '',

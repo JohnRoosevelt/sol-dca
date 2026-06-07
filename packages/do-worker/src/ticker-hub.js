@@ -33,22 +33,33 @@ import { sendAlert } from './alert.js';
 
 const TICKER_TIMEOUT_MS = 30_000; // ticker 30s 没收到 = 静默
 const WS_RECONNECT_MS = 5_000; // OKX WS 断开 5s 后重连
-const BALANCE_SYNC_MS = 5 * 60 * 1000; // 5 分钟同步一次 OKX 真实余额
+// (已删 BALANCE_SYNC_MS — balance sync 不再后台跑, 见 loadPortfolio 注释)
 const MONTH_KEY_FMT = (d) => d.toISOString().slice(0, 7); // YYYY-MM
 
 // FIFO 上限: signals 50 条, trades 30 条
 const SIGNAL_FIFO_LIMIT = 50;
 const TRADE_FIFO_LIMIT = 30;
 
-// DO storage schema (跟 D1 列名一致 snake_case, 数据迁移友好)
+// Hold 信号 rate limit: OKX ticker 每秒推 ~10 次, 每个 tick 都记 hold 会刷屏
+//   - 至少 HOLD_HEARTBEAT_MS (30s) 间隔 (心跳)
+//   - 或价格相对上次记录的 hold 移动 > HOLD_PRICE_CHANGE_PCT (0.2%) — 立即补一条 (波动市)
+//   - Buy/Sell/Skip 不限流, 立刻记
+const HOLD_HEARTBEAT_MS = 30_000;
+const HOLD_PRICE_CHANGE_PCT = 0.2;
+
+// DO storage schema (跟 D1 portfolio_state / signals / trades 三张表完全对齐, 字段/名字/snake_case 一致)
+//   单一 source of truth: packages/do-worker/src/db/schema.js (Drizzle) → drizzle/migrations/0000_initial.sql → D1
+//   worker raw SQL 写 DO + D1 都按这个 schema 走, 避免 silent drift (2026-06-07 fix)
 const SQL_SCHEMA = `
-	CREATE TABLE IF NOT EXISTS portfolio (
+	CREATE TABLE IF NOT EXISTS portfolio_state (
 		id INTEGER PRIMARY KEY,
-		usdt_balance REAL NOT NULL,
-		sol_holding REAL NOT NULL,
+		usdt_balance REAL NOT NULL DEFAULT 0,
+		sol_holding REAL NOT NULL DEFAULT 0,
+		avg_buy_price REAL,
 		last_buy_price REAL,
 		total_spent REAL NOT NULL DEFAULT 0,
 		total_sold REAL NOT NULL DEFAULT 0,
+		realized_pnl REAL NOT NULL DEFAULT 0,
 		current_month_spent REAL NOT NULL DEFAULT 0,
 		current_month_reset TEXT,
 		consecutive_dca_buys INTEGER NOT NULL DEFAULT 0,
@@ -81,11 +92,41 @@ const SQL_SCHEMA = `
 		mode TEXT NOT NULL,
 		okx_order_id TEXT,
 		okx_state TEXT,
+		okx_fee TEXT,
+		intended_amount_usdt REAL,
 		created_at TEXT NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS idx_signals_created_at ON signals (created_at DESC);
 	CREATE INDEX IF NOT EXISTS idx_trades_created_at ON trades (created_at DESC);
 `;
+
+// 兼容老 DO storage — user 要求 destructive 重建, 不 ALTER 加列
+// DROP + CREATE 三个表 (portfolio_state / signals / trades), 历史数据直接清掉
+// (2026-06-07 决策: 不需要历史 trades, 重建更稳, 避免 schema drift)
+const SCHEMA_REBUILD = [
+	'DROP TABLE IF EXISTS portfolio_state',
+	'DROP TABLE IF EXISTS signals',
+	'DROP TABLE IF EXISTS trades'
+];
+
+/** @param {any} storage DO SQLite storage */
+export function applyMigrations(storage) {
+	// Destructive 重建: 先 DROP 老表 (IF EXISTS), 让后面 SQL_SCHEMA 里的 CREATE TABLE IF NOT EXISTS
+	// 用新 schema 建 — 老 schema 数据全部清空 (2026-06-07 user 决策, 不需要历史)
+	for (const sql of SCHEMA_REBUILD) {
+		try {
+			storage.sql.exec(sql);
+		} catch (err) {
+			console.error('[TickerHub] DROP failed:', sql, err);
+		}
+	}
+	// 跑 SQL_SCHEMA (CREATE TABLE IF NOT EXISTS) — 现在 IF NOT EXISTS 触发新表建立
+	try {
+		storage.sql.exec(SQL_SCHEMA);
+	} catch (err) {
+		console.error('[TickerHub] CREATE TABLE failed:', err);
+	}
+}
 
 export class TickerHub {
 	/**
@@ -95,8 +136,17 @@ export class TickerHub {
 	constructor(state, env) {
 		this.state = state;
 		this.env = env;
-		this.okx = createOkxClient(env);
-		this.missingCredentials = checkOkxCredentials(env);
+		// 兼容老 DO storage schema: 加新字段
+		applyMigrations(state.storage);
+		// 从 DO name 推 mode: 'sol-usdt-demo' → 'demo', 'sol-usdt-live' → 'live'
+		//   index.js 路由会按 ?mode=... 选不同 DO name
+		//   name 为 null (没经过 idFromName) → 兜底 demo
+		const hubName = state.id?.name || '';
+		this.mode = hubName.endsWith('-live') ? 'live' : 'demo';
+		this.isDemo = this.mode === 'demo';
+		// 每个 DO 拿对应 mode 的 credentials (跳过 env OKX_DEMO_MODE)
+		this.okx = createOkxClient(env, this.isDemo);
+		this.missingCredentials = checkOkxCredentials(env, this.isDemo);
 		this.instId = env.OKX_INST_ID || 'SOL-USDT';
 		this.channel = env.OKX_TICKER_CHANNEL || 'tickers';
 		this.publicWsUrl = env.OKX_PUBLIC_WS || 'wss://ws.okx.com:8443/ws/v5/public';
@@ -112,8 +162,9 @@ export class TickerHub {
 		this.okxWs = null;
 		this.reconnectTimer = null;
 		this.heartbeatTimer = null;
-		this.balanceSyncTimer = null;
 		this.recentHoldSignals = []; // 内存 hold 环形缓冲 (前端 fold count 用, 不写 storage)
+		this.lastHoldSignalAt = 0; // rate limit: 上次 emit hold 的 timestamp
+		this.lastHoldSignalPrice = 0; // rate limit: 上次 emit hold 时的价格 (算价格变化用)
 
 		// 启动: 建 DO storage 表
 		this.state.blockConcurrencyWhile(async () => {
@@ -141,11 +192,15 @@ export class TickerHub {
 	 * 读 portfolio (优先 DO storage → D1 恢复 → OKX 真实余额 → 写死 7000)
 	 */
 	async loadPortfolio() {
+		// demo 跟 live 各自用独立 row id (1 / 2), D1 schema 不加 mode 列
+		const portfolioRowId = this.mode === 'live' ? 2 : 1;
 		// 1) 优先从 DO storage 读 (热数据, ~ms)
-		const rows = this.state.storage.sql.exec('SELECT * FROM portfolio WHERE id = 1').toArray();
+		const rows = this.state.storage.sql
+			.exec('SELECT * FROM portfolio_state WHERE id = ?', portfolioRowId)
+			.toArray();
 		if (rows.length > 0) {
 			this.portfolio = this.rowToPortfolio(rows[0]);
-			console.log('[TickerHub] loaded portfolio from DO storage:', JSON.stringify(this.portfolio));
+			console.log(`[TickerHub] loaded portfolio (${this.mode}) from DO storage:`, JSON.stringify(this.portfolio));
 			return;
 		}
 
@@ -153,8 +208,10 @@ export class TickerHub {
 		if (this.env.SOL_DCA_DB) {
 			try {
 				const row = await this.env.SOL_DCA_DB.prepare(
-					'SELECT * FROM portfolio_state WHERE id = 1'
-				).first();
+					'SELECT * FROM portfolio_state WHERE id = ?'
+				)
+					.bind(portfolioRowId)
+					.first();
 				if (row) {
 					this.portfolio = this.rowToPortfolio(this.d1RowToPortfolioRow(row));
 					await this.persistPortfolio();
@@ -194,6 +251,8 @@ export class TickerHub {
 		return {
 			usdtBalance: STRATEGY_CONFIG.initialUSDT,
 			solHolding: 0,
+			avgBuyPrice: null,
+			realizedPnL: 0,
 			lastBuyPrice: null,
 			totalSpent: 0,
 			totalSoldUSDT: 0,
@@ -208,15 +267,23 @@ export class TickerHub {
 	 * 把 DO storage row (snake_case) 跟 D1 row 都映射到 portfolio 对象
 	 */
 	rowToPortfolio(row) {
+		// monthSpent 反序列化: 从 current_month_spent + current_month_reset 还原
+		// DO storage 只存当月 scalar (跨月会被 heartbeat 重置, 历史月份不存)
+		const monthSpent = new Map();
+		if (row.current_month_reset && row.current_month_spent) {
+			monthSpent.set(row.current_month_reset, row.current_month_spent);
+		}
 		return {
 			usdtBalance: row.usdt_balance,
 			solHolding: row.sol_holding,
+			avgBuyPrice: row.avg_buy_price != null ? row.avg_buy_price : null,
+			realizedPnL: row.realized_pnl || 0,
 			lastBuyPrice: row.last_buy_price,
 			totalSpent: row.total_spent,
 			totalSoldUSDT: row.total_sold || 0,
 			consecutiveDcaBuys: row.consecutive_dca_buys || 0,
 			currentMonthReset: row.current_month_reset || MONTH_KEY_FMT(new Date()),
-			monthSpent: new Map(),
+			monthSpent,
 			sellStairsTriggered: new Set(
 				JSON.parse(row.sell_stairs_triggered || '[]')
 			)
@@ -226,17 +293,22 @@ export class TickerHub {
 	/**
 	 * D1 row (snake_case, 列名带 portfolio_state 前缀) → DO storage row shape
 	 * 复用 rowToPortfolio 之前的逻辑
+	 *
+	 * 注: D1 schema 已对齐 DO storage schema (2026-06-07), sell_stairs_triggered 持久化也走 D1
+	 *     DO 重启后从 D1 恢复能拿到 V6 sell stairs 状态机, 不会丢
 	 */
 	d1RowToPortfolioRow(row) {
 		return {
 			usdt_balance: row.usdt_balance,
 			sol_holding: row.sol_holding,
+			avg_buy_price: row.avg_buy_price,
+			realized_pnl: row.realized_pnl || 0,
 			last_buy_price: row.last_buy_price,
 			total_spent: row.total_spent,
 			total_sold: row.total_sold || 0,
 			consecutive_dca_buys: row.consecutive_dca_buys || 0,
 			current_month_reset: row.current_month_reset,
-			sell_stairs_triggered: '[]' // D1 schema 没存这个字段, 启动时清空
+			sell_stairs_triggered: row.sell_stairs_triggered || '[]'
 		};
 	}
 
@@ -246,23 +318,29 @@ export class TickerHub {
 	async persistPortfolio() {
 		if (!this.portfolio) return;
 		const p = this.portfolio;
-		const monthSpentTotal = Array.from(p.monthSpent.values()).reduce((a, b) => a + b, 0);
+		// demo 跟 live 各自用独立 row id (1 / 2), D1 schema 不加 mode 列
+		const portfolioRowId = this.mode === 'live' ? 2 : 1;
+		// monthSpentTotal 只算 currentMonthReset 月份 (跨月重置时其他月份不存, 避免数据膨胀)
+		const monthSpentTotal = p.monthSpent.get(p.currentMonthReset) || 0;
 		const sellStairsJson = JSON.stringify(Array.from(p.sellStairsTriggered).sort());
 		const updatedAt = new Date().toISOString();
 
 		// 1) DO storage (主)
 		try {
 			this.state.storage.sql.exec(
-				`INSERT OR REPLACE INTO portfolio
-				 (id, usdt_balance, sol_holding, last_buy_price, total_spent, total_sold,
-				  current_month_spent, current_month_reset, consecutive_dca_buys,
+				`INSERT OR REPLACE INTO portfolio_state
+				 (id, usdt_balance, sol_holding, avg_buy_price, last_buy_price, total_spent, total_sold,
+				  realized_pnl, current_month_spent, current_month_reset, consecutive_dca_buys,
 				  sell_stairs_triggered, updated_at)
-				 VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				portfolioRowId,
 				p.usdtBalance,
 				p.solHolding,
+				p.avgBuyPrice,
 				p.lastBuyPrice,
 				p.totalSpent,
 				p.totalSoldUSDT || 0,
+				p.realizedPnL || 0,
 				monthSpentTotal,
 				p.currentMonthReset,
 				p.consecutiveDcaBuys,
@@ -278,28 +356,29 @@ export class TickerHub {
 			});
 		}
 
-		// 2) D1 归档 (副, 失败不影响主)
+		// 2) D1 归档 (副, 失败不影响主) — 跟 DO storage 同一份 schema (portfolio_state 表名 + 13 列对齐)
 		if (this.env.SOL_DCA_DB) {
 			try {
 				await this.env.SOL_DCA_DB.prepare(
 					`INSERT OR REPLACE INTO portfolio_state
-					 (id, usdt_balance, sol_holding, avg_buy_price, last_buy_price, last_buy_date,
-					  total_spent, total_sold, current_month_spent, current_month_reset,
-					  consecutive_dca_buys, updated_at)
-					 VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
+					 (id, usdt_balance, sol_holding, avg_buy_price, last_buy_price,
+					  total_spent, total_sold, realized_pnl, current_month_spent, current_month_reset,
+					  consecutive_dca_buys, sell_stairs_triggered, updated_at)
+					 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
 				)
 					.bind(
-						1,
+						portfolioRowId,
 						p.usdtBalance,
 						p.solHolding,
+						p.avgBuyPrice,
 						p.lastBuyPrice,
-						p.lastBuyPrice,
-						p.lastBuyPrice ? updatedAt.slice(0, 10) : null,
 						p.totalSpent,
 						p.totalSoldUSDT || 0,
+						p.realizedPnL || 0,
 						monthSpentTotal,
 						p.currentMonthReset,
 						p.consecutiveDcaBuys,
+						sellStairsJson,
 						updatedAt
 					)
 					.run();
@@ -376,6 +455,17 @@ export class TickerHub {
 
 		// 3) Hold: 不写 storage, 不广播, 只在内存 hold 环形缓冲累积 (前端 fold count 用)
 		if (decision.action === 'hold') {
+			// Rate limit: 30s 心跳 OR 价格移动 > 0.2% 才记一条
+			//   避免 OKX ticker 每秒 10 次推送刷屏 (FIFO 50 条本来 5 秒就刷一次)
+			const now = Date.now();
+			const elapsedMs = now - this.lastHoldSignalAt;
+			const priceChangePct = this.lastHoldSignalPrice > 0
+				? Math.abs((this.lastTickerPrice - this.lastHoldSignalPrice) / this.lastHoldSignalPrice) * 100
+				: Infinity;
+			if (elapsedMs < HOLD_HEARTBEAT_MS && priceChangePct < HOLD_PRICE_CHANGE_PCT) {
+				// 限流: 不 emit
+				return;
+			}
 			const holdSignal = {
 				id: crypto.randomUUID(),
 				price: this.lastTickerPrice,
@@ -385,13 +475,15 @@ export class TickerHub {
 				profit_pct: decision.profitPct ?? null,
 				usdt_after: this.portfolio.usdtBalance,
 				sol_after: this.portfolio.solHolding,
-				mode: this.okx.creds.isDemo ? 'demo' : 'live',
+				mode: this.mode,
 				created_at: new Date().toISOString()
 			};
 			this.recentHoldSignals.unshift(holdSignal);
 			if (this.recentHoldSignals.length > SIGNAL_FIFO_LIMIT) {
 				this.recentHoldSignals.length = SIGNAL_FIFO_LIMIT;
 			}
+			this.lastHoldSignalAt = now;
+			this.lastHoldSignalPrice = this.lastTickerPrice;
 			return;
 		}
 
@@ -405,11 +497,14 @@ export class TickerHub {
 			profit_pct: decision.profitPct ?? null,
 			usdt_after: this.portfolio.usdtBalance,
 			sol_after: this.portfolio.solHolding,
-			mode: this.okx.creds.isDemo ? 'demo' : 'live',
+			mode: this.mode,
 			created_at: new Date().toISOString()
 		};
 		await this.persistSignal(signal);
 		this.broadcastBrowser({ type: 'signal', ...signal });
+		// 重置 hold rate limit: 下一条 hold 立刻 emit (让 user 看到 "buy/sell 之后回到 hold")
+		this.lastHoldSignalAt = 0;
+		this.lastHoldSignalPrice = 0;
 
 		// 5) 执行 buy / sell
 		if (decision.action === 'buy' && decision.amountUsdt >= 1) {
@@ -429,32 +524,54 @@ export class TickerHub {
 			return;
 		}
 		// OKX V5 clOrdId: 1-32 位 alphanumeric (a-zA-Z0-9), 不能含 - 或 _
-		const clOrdId = `solDca${Date.now()}${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
+		const clOrdId = `solDca${this.mode === 'live' ? 'L' : 'D'}${Date.now()}${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
 		try {
 			// 用 lastTickerPrice 估算 sz,省一次 /api/v5/market/ticker round trip (~50ms)
 			const res = await this.okx.marketBuy(this.instId, decision.amountUsdt, clOrdId, this.lastTickerPrice);
 			const ordId = res?.[0]?.ordId;
-			const solBought = decision.amountUsdt / this.lastTickerPrice;
-			applyBuy(this.portfolio, decision.amountUsdt, solBought, this.lastTickerPrice, MONTH_KEY_FMT(new Date()));
+			if (!ordId) throw new Error('OKX order response missing ordId');
+
+			// 下单后调 OKX 拿真实 fill (accFillSz / avgPx) — trade 表不再用预算值
+			// 偶发 OKX 异步 fill 需要 retry 几次, market order 通常 ≤200ms
+			let orderDetail = null;
+			for (let i = 0; i < 3 && !orderDetail; i++) {
+				orderDetail = await this.okx.getOrderDetail(this.instId, ordId);
+				if (orderDetail && orderDetail.state === 'filled') break;
+				await new Promise((r) => setTimeout(r, 100 * (i + 1)));
+			}
+			// 真实 fill 数据 (有就覆盖, 没有 fallback 到预算)
+			const realFillSz = parseFloat(orderDetail?.accFillSz || '0');
+			const realAvgPx = parseFloat(orderDetail?.avgPx || this.lastTickerPrice);
+			const realFee = parseFloat(orderDetail?.fee || '0');
+			const realFeeCcy = orderDetail?.feeCcy || '';
+			const realAmountUsdt = +(realFillSz * realAvgPx).toFixed(2);
+			const solBought = realFillSz > 0 ? realFillSz : decision.amountUsdt / this.lastTickerPrice;
+			const usdtSpent = realAmountUsdt > 0 ? realAmountUsdt : decision.amountUsdt;
+
+			applyBuy(this.portfolio, usdtSpent, solBought, realAvgPx, MONTH_KEY_FMT(new Date()));
 			await this.persistPortfolio();
 			const trade = {
 				id: crypto.randomUUID(),
 				cl_ord_id: clOrdId,
 				side: 'buy',
-				price: this.lastTickerPrice,
-				amount_usdt: decision.amountUsdt,
+				price: realAvgPx,
+				amount_usdt: usdtSpent,
 				amount_sol: solBought,
 				reason: decision.reason,
 				drawdown_pct: decision.drawdownPct,
 				multiplier: decision.multiplier,
-				mode: this.okx.creds.isDemo ? 'demo' : 'live',
+				mode: this.mode,
 				okx_order_id: ordId,
-				okx_state: 'filled',
+				okx_state: orderDetail?.state || 'filled',
+				okx_fee: realFeeCcy ? `${realFee} ${realFeeCcy}` : null,
+				intended_amount_usdt: decision.amountUsdt, // 记录下单意图, audit 用
 				created_at: new Date().toISOString()
 			};
 			await this.persistTrade(trade);
-			this.broadcastBrowser({ type: 'trade', side: 'buy', amountUsdt: decision.amountUsdt, price: this.lastTickerPrice, reason: decision.reason });
-			this.sendAlertSafe('info', 'BUY executed', `${decision.reason} @ $${this.lastTickerPrice.toFixed(2)}`);
+			this.broadcastBrowser({ type: 'trade', side: 'buy', amountUsdt: usdtSpent, price: realAvgPx, reason: decision.reason });
+			this.sendAlertSafe('info', 'BUY executed', `${decision.reason} @ $${realAvgPx.toFixed(2)} — ${solBought} SOL ($${usdtSpent})`);
+			// 下单成功后立即拉 OKX 真实余额, dashboard 跟账户实时对准
+			await this.syncBalanceFromOkx();
 		} catch (err) {
 			console.error('[TickerHub] buy failed:', err);
 			this.sendAlertSafe('error', 'BUY failed', err.message);
@@ -472,29 +589,49 @@ export class TickerHub {
 			return;
 		}
 		// OKX V5 clOrdId: 1-32 位 alphanumeric
-		const clOrdId = `solDca${Date.now()}${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
+		const clOrdId = `solDca${this.mode === 'live' ? 'L' : 'D'}${Date.now()}${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
 		try {
 			const res = await this.okx.marketSell(this.instId, decision.amountSol, clOrdId);
 			const ordId = res?.[0]?.ordId;
-			applySell(this.portfolio, decision.amountUsdt, decision.amountSol, decision.stairIdx);
+			if (!ordId) throw new Error('OKX sell response missing ordId');
+
+			// 拿真实 sell fill 数据 — 覆盖 trade 表预算值
+			let orderDetail = null;
+			for (let i = 0; i < 3 && !orderDetail; i++) {
+				orderDetail = await this.okx.getOrderDetail(this.instId, ordId);
+				if (orderDetail && orderDetail.state === 'filled') break;
+				await new Promise((r) => setTimeout(r, 100 * (i + 1)));
+			}
+			const realFillSz = parseFloat(orderDetail?.accFillSz || '0');
+			const realAvgPx = parseFloat(orderDetail?.avgPx || this.lastTickerPrice);
+			const realFee = parseFloat(orderDetail?.fee || '0');
+			const realFeeCcy = orderDetail?.feeCcy || '';
+			const solSold = realFillSz > 0 ? realFillSz : decision.amountSol;
+			const usdtGot = +(solSold * realAvgPx).toFixed(2);
+
+			applySell(this.portfolio, usdtGot, solSold, decision.stairIdx);
 			await this.persistPortfolio();
 			const trade = {
 				id: crypto.randomUUID(),
 				cl_ord_id: clOrdId,
 				side: 'sell',
-				price: this.lastTickerPrice,
-				amount_usdt: decision.amountUsdt,
-				amount_sol: decision.amountSol,
+				price: realAvgPx,
+				amount_usdt: usdtGot,
+				amount_sol: solSold,
 				reason: decision.reason,
 				profit_pct: decision.profitPct,
-				mode: this.okx.creds.isDemo ? 'demo' : 'live',
+				mode: this.mode,
 				okx_order_id: ordId,
-				okx_state: 'filled',
+				okx_state: orderDetail?.state || 'filled',
+				okx_fee: realFeeCcy ? `${realFee} ${realFeeCcy}` : null,
+				intended_amount_usdt: decision.amountUsdt, // 记录策略预期, audit 用
 				created_at: new Date().toISOString()
 			};
 			await this.persistTrade(trade);
-			this.broadcastBrowser({ type: 'trade', side: 'sell', amountSol: decision.amountSol, price: this.lastTickerPrice, reason: decision.reason });
-			this.sendAlertSafe('info', 'SELL executed', `${decision.reason} @ $${this.lastTickerPrice.toFixed(2)}`);
+			this.broadcastBrowser({ type: 'trade', side: 'sell', amountSol: solSold, price: realAvgPx, reason: decision.reason });
+			this.sendAlertSafe('info', 'SELL executed', `${decision.reason} @ $${realAvgPx.toFixed(2)} — ${solSold} SOL ($${usdtGot})`);
+			// 卖单成功后立即拉 OKX 真实余额, dashboard 跟账户实时对准
+			await this.syncBalanceFromOkx();
 		} catch (err) {
 			console.error('[TickerHub] sell failed:', err);
 			this.sendAlertSafe('error', 'SELL failed', err.message);
@@ -576,8 +713,8 @@ export class TickerHub {
 		try {
 			this.state.storage.sql.exec(
 				`INSERT OR REPLACE INTO trades
-				 (id, cl_ord_id, side, price, amount_usdt, amount_sol, reason, drawdown_pct, multiplier, profit_pct, mode, okx_order_id, okx_state, created_at)
-				 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+				 (id, cl_ord_id, side, price, amount_usdt, amount_sol, reason, drawdown_pct, multiplier, profit_pct, mode, okx_order_id, okx_state, okx_fee, intended_amount_usdt, created_at)
+				 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 				trade.id,
 				trade.cl_ord_id,
 				trade.side,
@@ -591,6 +728,8 @@ export class TickerHub {
 				trade.mode,
 				trade.okx_order_id ?? null,
 				trade.okx_state ?? null,
+				trade.okx_fee ?? null,
+				trade.intended_amount_usdt ?? null,
 				trade.created_at
 			);
 			// FIFO 限 30
@@ -617,8 +756,8 @@ export class TickerHub {
 			try {
 				await this.env.SOL_DCA_DB.prepare(
 					`INSERT OR REPLACE INTO trades
-					 (id, cl_ord_id, side, price, amount_usdt, amount_sol, reason, drawdown_pct, multiplier, profit_pct, mode, okx_order_id, okx_state, created_at)
-					 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+					 (id, cl_ord_id, side, price, amount_usdt, amount_sol, reason, drawdown_pct, multiplier, profit_pct, mode, okx_order_id, okx_state, okx_fee, intended_amount_usdt, created_at)
+					 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 				)
 					.bind(
 						trade.id,
@@ -634,6 +773,8 @@ export class TickerHub {
 						trade.mode,
 						trade.okx_order_id ?? null,
 						trade.okx_state ?? null,
+						trade.okx_fee ?? null,
+						trade.intended_amount_usdt ?? null,
 						trade.created_at
 					)
 					.run();
@@ -687,31 +828,44 @@ export class TickerHub {
 			}
 		}, 10_000);
 
-		// 3) OKX 余额同步: 每 5 分钟一次
-		//    只更新 usdtBalance + solHolding, 不动 lastBuyPrice / totalSpent / sellStairs
-		this.balanceSyncTimer = setInterval(() => {
-			if (this.missingCredentials.length > 0) return;
-			if (!this.portfolio) return;
-			Promise.all([
+		// 3) OKX 余额同步: 不再后台跑 (见 loadPortfolio + syncBalanceFromOkx 注释)
+		//    同步时机: 启动时 (loadPortfolio step 3) + 买/卖成功后 (executeBuy/executeSell/manual_sell)
+		//    OKX 真实账户 = source of truth, DO storage = 策略历史 (lastBuyPrice / totalSpent 等)
+	}
+
+	/**
+	 * 跟 OKX 真实账户同步 USDT + SOL 余额
+	 * 失败不抛错 (只 log + 静默), 不影响主流程 (下单/卖单)
+	 * 同步后会 broadcast portfolio_synced, dashboard 立即反映
+	 */
+	async syncBalanceFromOkx() {
+		if (this.missingCredentials.length > 0) return;
+		if (!this.portfolio) return;
+		try {
+			const [usdt, sol] = await Promise.all([
 				this.okx.getUsdtBalance().catch((e) => {
-					console.error('[TickerHub] balance sync usdt failed:', e);
+					console.error('[TickerHub] sync usdt failed:', e);
 					return null;
 				}),
 				this.okx.getSolBalance().catch((e) => {
-					console.error('[TickerHub] balance sync sol failed:', e);
+					console.error('[TickerHub] sync sol failed:', e);
 					return null;
 				})
-			]).then(([usdt, sol]) => {
-				if (usdt != null) this.portfolio.usdtBalance = usdt;
-				if (sol != null) this.portfolio.solHolding = sol;
-				this.persistPortfolio().catch(console.error);
-				this.broadcastBrowser({
-					type: 'portfolio_synced',
-					usdtBalance: this.portfolio.usdtBalance,
-					solHolding: this.portfolio.solHolding
-				});
+			]);
+			if (usdt != null) this.portfolio.usdtBalance = usdt;
+			if (sol != null) this.portfolio.solHolding = sol;
+			await this.persistPortfolio();
+			// 推送完整 portfolio 快照 (不是只 usdt/sol), 让前端 trade/init_dca 后能看到 lastBuyPrice/avgBuyPrice/totalSpent 变化
+			this.broadcastBrowser({
+				type: 'portfolio_synced',
+				portfolio: this.snapshotPortfolio()
 			});
-		}, BALANCE_SYNC_MS);
+			console.log(
+				`[TickerHub] synced from OKX: ${this.portfolio.usdtBalance} USDT + ${this.portfolio.solHolding} SOL`
+			);
+		} catch (err) {
+			console.error('[TickerHub] syncBalanceFromOkx failed:', err);
+		}
 	}
 
 	/**
@@ -763,6 +917,9 @@ export class TickerHub {
 						okxWsState: this.lastOkxWsState,
 						lastTickerPrice: this.lastTickerPrice,
 						lastTickerAt: this.lastTickerAt,
+						// 跟 /state 端点对齐, 避免页面刷新 / 模式切换时决策日志 + 最近成交丢失
+						recentSignals: this.getRecentSignals(50),
+						recentTrades: this.getRecentTrades(50),
 						missingCredentials: this.missingCredentials,
 						ts: Date.now()
 					})
@@ -773,13 +930,13 @@ export class TickerHub {
 
 		if (path === '/state' && request.method === 'GET') {
 			return Response.json({
-				portfolio: this.portfolio ? this.snapshotPortfolio() : null,
+				mode: this.mode,				portfolio: this.portfolio ? this.snapshotPortfolio() : null,
 				paused: this.isPaused,
 				okxWsState: this.lastOkxWsState,
 				lastTickerPrice: this.lastTickerPrice,
 				lastTickerAt: this.lastTickerAt,
-				recentSignals: this.getRecentSignals(20),
-				recentTrades: this.getRecentTrades(30),
+				recentSignals: this.getRecentSignals(50),
+				recentTrades: this.getRecentTrades(50),
 				sabbath: isSabbath(),
 				missingCredentials: this.missingCredentials,
 				ts: Date.now()
@@ -793,6 +950,127 @@ export class TickerHub {
 				return Response.json({ signals: this.getRecentSignals(limit) });
 			}
 			return Response.json({ trades: this.getRecentTrades(limit) });
+		}
+
+		// /debug/okx-balance — 直接调 OKX getBalance, 返回原始响应 (debug 用)
+		if (path === '/debug/okx-balance' && request.method === 'GET') {
+			try {
+				const data = await this.okx.getBalance();
+				// 同时 parse 出 usdt/sol, 跟 portfolio snapshot 比对
+				const usdtEntry = data.find((d) => d.ccy === 'USDT');
+				const solEntry = data.find((d) => d.ccy === 'SOL');
+			return Response.json({
+					ok: true,
+					mode: this.mode,
+					balance: data,
+					parsed: {
+						usdt: usdtEntry ? parseFloat(usdtEntry.availBal) : null,
+						sol: solEntry ? parseFloat(solEntry.availBal) : null
+					},
+					missingCredentials: this.missingCredentials
+				});
+			} catch (err) {
+				return Response.json({ ok: false, error: String(err), mode: this.mode }, { status: 500 });
+			}
+		}
+
+		// /reset — 清 DO storage + D1 portfolio_state, 重新拉 OKX 真实账户
+		//   use case: 切 live 模式, 历史 demo 脏数据污染计算
+		if (path === '/reset' && request.method === 'POST') {
+			let soldSol = 0;
+			let usdtGot = 0;
+			let sellError = null;
+			try {
+				// 1) 先卖光所有 SOL 换成 USDT (user 要求 reset 走这条路)
+				if (this.missingCredentials.length === 0) {
+					try {
+						const solBalance = await this.okx.getSolBalance();
+						if (solBalance > 0.001) {
+							// 1a) 算这次清理卖出的 realizedPnL (用当前 portfolio avgBuyPrice, 不更新到 portfolio state)
+							//   这次卖出后整个 state 清空, 所以这次 P&L 只作 audit / alert 输出, 不入 portfolio_state
+							const cleanupRealized =
+								this.portfolio?.avgBuyPrice != null
+									? (this.lastTickerPrice - this.portfolio.avgBuyPrice) * solBalance
+									: 0;
+							const clOrdId = `solDcaR${this.mode === 'live' ? 'L' : 'D'}${Date.now()}${crypto.randomUUID().replace(/-/g, '').slice(0, 6)}`;
+							await this.okx.marketSell(this.instId, solBalance, clOrdId);
+							soldSol = solBalance;
+							usdtGot = solBalance * this.lastTickerPrice;
+							console.log(`[TickerHub] reset sold ${soldSol} SOL for ~$${usdtGot.toFixed(2)} (cleanup realized ≈ $${cleanupRealized.toFixed(2)})`);
+							this.sendAlertSafe(
+								'info',
+								'RESET sold all SOL',
+								`${soldSol.toFixed(4)} SOL → ~$${usdtGot.toFixed(2)} USDT @ $${this.lastTickerPrice.toFixed(2)}` +
+									(cleanupRealized
+										? ` (本次清理 realizedPnL ≈ $${cleanupRealized.toFixed(2)}, 不入 portfolio state)`
+										: '')
+							);
+							await this.syncBalanceFromOkx();
+						}
+					} catch (err) {
+						sellError = String(err);
+						console.error('[TickerHub] reset sell-all failed:', err);
+						this.sendAlertSafe('error', 'RESET sell-all failed', err.message);
+					}
+				}
+				// demo / live 各自用独立 row id (1 / 2), D1 schema 不加 mode 列
+				const portfolioRowId = this.mode === 'live' ? 2 : 1;
+				this.state.storage.sql.exec('DELETE FROM portfolio_state WHERE id = ?', portfolioRowId);
+				this.state.storage.sql.exec('DELETE FROM signals WHERE mode = ?', this.mode);
+				this.state.storage.sql.exec('DELETE FROM trades WHERE mode = ?', this.mode);
+				// D1 reset: 独立 try/catch, D1 是 archive (副), 失败不能阻塞主流程
+				// (D1 表可能因 apply migration 失败/换 binding 临时不存在, 跟 DO storage 同步无关)
+				if (this.env.SOL_DCA_DB) {
+					try {
+						await this.env.SOL_DCA_DB.prepare('DELETE FROM portfolio_state WHERE id = ?')
+							.bind(portfolioRowId)
+							.run();
+						await this.env.SOL_DCA_DB.prepare('DELETE FROM signals WHERE mode = ?').bind(this.mode).run();
+						await this.env.SOL_DCA_DB.prepare('DELETE FROM trades WHERE mode = ?').bind(this.mode).run();
+					} catch (d1Err) {
+						console.warn('[TickerHub] reset D1 cleanup failed (non-fatal, DO storage 已清):', d1Err.message);
+					}
+				}
+				this.portfolio = null;
+				await this.loadPortfolio();
+			// Reset 强制清仓: 不管 OKX sell 成交没, portfolio state 应该是清空状态
+			// (OKX demo 模拟盘余额跟 trade 不挂钩, sync 回来还是显示原 SOL, 这是 OKX 限制)
+			//   - 真实 sell 成功了: OKX 账户里 SOL 真少了, sync 后一致
+			//   - sell 失败 (balance insufficient 等): OKX 没动, 但 user reset 意图明确
+			//     把 portfolio.solHolding 强制设 0, 不让老数据污染新策略
+			// 同时清掉 hold 内存缓冲 + rate limit 状态 — 跟 "Reset" 的"全部清空"语义一致
+			this.recentHoldSignals = [];
+			this.lastHoldSignalAt = 0;
+			this.lastHoldSignalPrice = 0;
+			if (this.portfolio) {
+				this.portfolio = {
+					...this.portfolio,
+					solHolding: 0,
+					avgBuyPrice: null,
+					lastBuyPrice: null,
+					totalSpent: 0,
+					totalSoldUSDT: 0,
+					realizedPnL: 0,
+					consecutiveDcaBuys: 0,
+					sellStairsTriggered: new Set(),
+					monthSpent: new Map(),
+					currentMonthReset: MONTH_KEY_FMT(new Date())
+				};
+				}
+				await this.persistPortfolio();
+				this.broadcastBrowser({
+					type: 'portfolio_reset',
+					portfolio: this.snapshotPortfolio(),
+					soldSol,
+					usdtGot,
+					sellError
+				});
+				console.log(`[TickerHub] reset complete — sold ${soldSol} SOL, usdt now ${this.portfolio.usdtBalance}`);
+				return Response.json({ ok: true, portfolio: this.snapshotPortfolio(), soldSol, usdtGot, sellError });
+			} catch (err) {
+				console.error('[TickerHub] reset failed:', err);
+				return Response.json({ ok: false, error: String(err) }, { status: 500 });
+			}
 		}
 
 		if (path === '/control' && request.method === 'POST') {
@@ -843,7 +1121,7 @@ export class TickerHub {
 					profit_pct: null,
 					usdt_after: this.portfolio.usdtBalance,
 					sol_after: this.portfolio.solHolding,
-					mode: this.okx.creds.isDemo ? 'demo' : 'live',
+					mode: this.mode,
 					created_at: new Date().toISOString()
 				};
 				await this.persistSignal(signal);
@@ -858,7 +1136,7 @@ export class TickerHub {
 						{ status: 503 }
 					);
 				}
-				const clOrdId = `solDcaM${Date.now()}${crypto.randomUUID().replace(/-/g, '').slice(0, 6)}`;
+				const clOrdId = `solDcaM${this.mode === 'live' ? 'L' : 'D'}${Date.now()}${crypto.randomUUID().replace(/-/g, '').slice(0, 6)}`;
 				try {
 					await this.okx.marketSell(this.instId, body.amountSol, clOrdId);
 					const usdtGot = body.amountSol * this.lastTickerPrice;
@@ -866,6 +1144,8 @@ export class TickerHub {
 					this.portfolio.usdtBalance += usdtGot;
 					await this.persistPortfolio();
 					this.broadcastBrowser({ type: 'manual_sell_done', amountSol: body.amountSol });
+					// 卖成功后立即拉 OKX 真实余额, dashboard 跟账户实时对准
+					await this.syncBalanceFromOkx();
 					return Response.json({ ok: true });
 				} catch (err) {
 					return Response.json({ ok: false, error: String(err) }, { status: 500 });
@@ -879,9 +1159,27 @@ export class TickerHub {
 
 	snapshotPortfolio() {
 		const p = this.portfolio;
+		// 持仓浮盈: (现价 - 平均买入价) × 持仓数
+		//   没买入过 (avgBuyPrice=null) 或 已清仓 (solHolding<dust) → 0
+		const unrealizedPnL =
+			p.avgBuyPrice != null && p.solHolding > 0.0001
+				? (this.lastTickerPrice - p.avgBuyPrice) * p.solHolding
+				: 0;
+		// 已实现盈亏: 分批回本/手动卖出累计
+		const realizedPnL = p.realizedPnL || 0;
+		// 总盈亏 = 浮盈 + 已实现
+		const totalPnL = unrealizedPnL + realizedPnL;
+		// 持仓回报率 (基于平均买入价)
+		const positionPct =
+			p.avgBuyPrice != null && p.avgBuyPrice > 0 && p.solHolding > 0.0001
+				? ((this.lastTickerPrice - p.avgBuyPrice) / p.avgBuyPrice) * 100
+				: 0;
 		return {
 			usdtBalance: p.usdtBalance,
 			solHolding: p.solHolding,
+			avgBuyPrice: p.avgBuyPrice,
+			realizedPnL,
+			unrealizedPnL,
 			lastBuyPrice: p.lastBuyPrice,
 			totalSpent: p.totalSpent,
 			totalSoldUSDT: p.totalSoldUSDT || 0,
@@ -890,11 +1188,10 @@ export class TickerHub {
 			monthSpentThisMonth: p.monthSpent.get(MONTH_KEY_FMT(new Date())) || 0,
 			sellStairsTriggered: Array.from(p.sellStairsTriggered),
 			currentValue: p.usdtBalance + p.solHolding * this.lastTickerPrice,
-			profit: p.usdtBalance + p.solHolding * this.lastTickerPrice - STRATEGY_CONFIG.initialUSDT,
-			profitPct:
-				((p.usdtBalance + p.solHolding * this.lastTickerPrice - STRATEGY_CONFIG.initialUSDT) /
-					STRATEGY_CONFIG.initialUSDT) *
-				100
+			// 总盈亏: 浮盈 + 已实现 (reset 后没持仓 → 0)
+			profit: totalPnL,
+			// 持仓百分比 (相对平均买入价, 没持仓 → 0)
+			profitPct: positionPct
 		};
 	}
 

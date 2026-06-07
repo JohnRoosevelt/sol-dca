@@ -16,6 +16,7 @@
 		lastTickerPrice: data.lastTickerPrice,
 		lastTickerAt: data.lastTickerAt ?? 0,
 		missingCredentials: data.missingCredentials ?? [],
-		sabbath: data.sabbath
+		sabbath: data.sabbath,
+		mode: data.mode
 	}}
 />

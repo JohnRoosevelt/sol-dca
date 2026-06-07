@@ -2,18 +2,19 @@ import { json } from '@sveltejs/kit';
 import { dev } from '$app/environment';
 
 /**
- * GET /api/signals?limit=100 — 最近策略信号
+ * GET /api/signals?limit=100&mode=demo|live — 最近策略信号
  *
- * dev 阶段:走 service binding → worker → DO 内存 (recentSignals 环形缓冲)
- *   (dev 阶段两个 miniflare 进程 D1 文件不互通, 直读 D1 永远空)
+ * dev 阶段:走 service binding → worker → DO 内存 (recentSignals 环形缓冲, DO instance 已是指定 mode)
  * prod 阶段:直读 D1 (同 database_id, 跟 worker 共享, 完整历史)
+ *   signals 表 mode 字段做 audit label, 按 ?mode= 过滤
  */
 export async function GET({ platform, url }) {
 	const limit = Math.min(parseInt(url.searchParams.get('limit') || '100'), 500);
+	const mode = url.searchParams.get('mode') === 'live' ? 'live' : 'demo';
 
 	if (dev && platform?.env?.SOL_DCA_WORKER) {
 		const res = await platform.env.SOL_DCA_WORKER.fetch(
-			`https://do/recent_signals?limit=${limit}`,
+			`https://do/recent_signals?mode=${mode}&limit=${limit}`,
 			{ method: 'GET' }
 		);
 		if (res.ok) return json(await res.json());
@@ -24,9 +25,9 @@ export async function GET({ platform, url }) {
 		return json({ signals: [], warning: 'SOL_DCA_DB not bound' });
 	}
 	const { results } = await platform.env.SOL_DCA_DB.prepare(
-		'SELECT * FROM signals ORDER BY created_at DESC LIMIT ?'
+		'SELECT * FROM signals WHERE mode = ? ORDER BY created_at DESC LIMIT ?'
 	)
-		.bind(limit)
+		.bind(mode, limit)
 		.all();
 	return json({ signals: results });
 }

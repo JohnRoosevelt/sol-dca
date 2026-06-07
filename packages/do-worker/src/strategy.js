@@ -15,7 +15,9 @@
  * @typedef {Object} PortfolioState
  * @property {number} usdtBalance
  * @property {number} solHolding
- * @property {number|null} lastBuyPrice
+ * @property {number|null} avgBuyPrice 加权平均买入价 (没持仓/null)
+ * @property {number} realizedPnL 累计已实现盈亏 (分批回本 + 手动卖出)
+ * @property {number|null} lastBuyPrice 最近一笔买入价 (lastBuyPrice 跟 avgBuyPrice 不同)
  * @property {number} totalSpent
  * @property {number} [totalSoldUSDT]
  * @property {number} consecutiveDcaBuys
@@ -43,7 +45,7 @@ export const STRATEGY_CONFIG = {
 		{ minDrop: 30, multiplier: 4 },
 		{ minDrop: 50, multiplier: 5 }
 	],
-	initialUSDT: 7000,
+	initialUSDT: 0, // 默认本金基准 = 0; 实际余额由 syncBalanceFromOkx 从 OKX 真实账户拉, 不假设
 	sellTriggerBase: 0.5,
 	sellPct: 0.3,
 	stairCount: 3
@@ -78,6 +80,8 @@ export function buildStairRatios(base, count) {
 
 /**
  * 检查分批回本触发（V6 checkSellStairsV6）
+ * 浮盈 = (现价 - 平均买入价) × 持仓数 — 不包含 usdt 余额, 不包含已实现 P&L
+ *   (已实现 P&L 是历史行为, 不再触发新 sell — sell stair 是基于"未实现浮盈"的概念)
  * @param {PortfolioState} state
  * @param {number} currentPrice
  * @param {ReturnType<typeof buildStairRatios>} stairRatios
@@ -86,12 +90,9 @@ export function buildStairRatios(base, count) {
  */
 export function checkSellStairs(state, currentPrice, stairRatios, sellPct) {
 	if (state.solHolding < 0.001) return null;
-	if (state.lastBuyPrice == null) return null; // 冷启动守卫: 没基准价不算 profit
-	const currentValue = state.usdtBalance + state.solHolding * currentPrice;
-	// 真浮盈: 跟初始本金 (initialUSDT) 比, 不是跟 totalSpent
-	// 旧算法 profit = currentValue - totalSpent 会把 usdtBalance 余额也算成"利润"的一部分,
-	// 冷启动 init_dca 后 (usdtBalance 6970 + solHolding 0.4743) 直接触发 sell, 是 bug
-	const profit = currentValue - STRATEGY_CONFIG.initialUSDT;
+	if (state.avgBuyPrice == null) return null; // 冷启动守卫: 没平均买入价不算 profit
+	// 浮盈 = (currentPrice - avgBuyPrice) * solHolding
+	const profit = (currentPrice - state.avgBuyPrice) * state.solHolding;
 	for (let i = 0; i < stairRatios.length; i++) {
 		if (state.sellStairsTriggered.has(i)) continue;
 		const triggerProfit = state.totalSpent * stairRatios[i];
@@ -131,42 +132,54 @@ export function decide(ticker, state, todayMonthKey) {
 	}
 
 	// 2) DCA 触发判断
-	let buyAmount = 0;
-	let drawdownPct = null;
 	if (state.lastBuyPrice === null) {
 		// 冷启动:不动手，等用户显式"Start DCA"建立基准价
 		return {
 			action: 'hold',
-			reason: '等待首次买入触发(点 UI 上"Start DCA"按钮建立基准价)',
+			reason: '等待首次买入触发(点 UI 上"启动 V6"按钮建基准价)',
 			drawdownPct: null,
 			multiplier: 1
 		};
-	} else {
-		drawdownPct = ((state.lastBuyPrice - ticker.last) / state.lastBuyPrice) * 100;
-		if (drawdownPct >= cfg.triggerPct) {
-			const mult = getMultiplier(drawdownPct, cfg.multiplierTiers);
-			buyAmount = cfg.baseAmount * mult;
-			const spent = state.monthSpent.get(todayMonthKey) || 0;
-			if (spent + buyAmount > cfg.monthLimit) {
-				buyAmount = cfg.monthLimit - spent;
-			}
-			if (buyAmount <= 0) buyAmount = 0;
-		}
 	}
 
-	if (buyAmount > state.usdtBalance) buyAmount = state.usdtBalance;
+	const drawdownPct = ((state.lastBuyPrice - ticker.last) / state.lastBuyPrice) * 100;
+	let buyAmount = 0;
+	let holdReason = null;
+
+	if (drawdownPct >= cfg.triggerPct) {
+		// 触发: 算加码倍数 + 月度上限
+		const mult = getMultiplier(drawdownPct, cfg.multiplierTiers);
+		buyAmount = cfg.baseAmount * mult;
+		const spent = state.monthSpent.get(todayMonthKey) || 0;
+		if (spent + buyAmount > cfg.monthLimit) {
+			holdReason = `月度上限已满 (本月已用 $${spent.toFixed(0)} / $${cfg.monthLimit})`;
+			buyAmount = 0;
+		}
+	} else {
+		// 跌幅不够 — 最常见的 hold 情况
+		holdReason = `跌幅不足 (${drawdownPct.toFixed(2)}% < ${cfg.triggerPct}%)`;
+	}
+
+	// 余额检查 (在触发之后)
+	if (buyAmount > state.usdtBalance && buyAmount > 0) {
+		holdReason = `余额不足 (需 $${buyAmount.toFixed(0)} > 余额 $${state.usdtBalance.toFixed(2)})`;
+		buyAmount = state.usdtBalance;
+	}
 	if (buyAmount < 1) {
-		return { action: 'hold', reason: '未触发 + 余额不足' };
+		return {
+			action: 'hold',
+			reason: holdReason ?? '未触发 (买入额 < $1)',
+			drawdownPct,
+			multiplier: drawdownPct >= cfg.triggerPct ? getMultiplier(drawdownPct, cfg.multiplierTiers) : 1
+		};
 	}
 
 	return {
 		action: 'buy',
-		reason: drawdownPct
-			? `跌 ${drawdownPct.toFixed(1)}% 触发，买 $${buyAmount.toFixed(0)}`
-			: `首买 $${buyAmount.toFixed(0)}`,
+		reason: `跌 ${drawdownPct.toFixed(1)}% 触发，买 $${buyAmount.toFixed(0)}`,
 		amountUsdt: buyAmount,
 		drawdownPct,
-		multiplier: drawdownPct ? getMultiplier(drawdownPct, cfg.multiplierTiers) : 1
+		multiplier: getMultiplier(drawdownPct, cfg.multiplierTiers)
 	};
 }
 
@@ -185,6 +198,8 @@ export function maybeResetMonth(state, todayMonthKey) {
 
 /**
  * 应用 buy 后的状态变更（in-memory）
+ * 加权平均价公式: newAvg = (oldAvg * oldQty + newPrice * newQty) / (oldQty + newQty)
+ *   第一次买: avgBuyPrice = price (冷启动)
  * @param {PortfolioState} state
  * @param {number} amountUsdt
  * @param {number} amountSol
@@ -195,6 +210,15 @@ export function applyBuy(state, amountUsdt, amountSol, price, todayMonthKey) {
 	state.usdtBalance -= amountUsdt;
 	state.solHolding += amountSol;
 	state.lastBuyPrice = price;
+	// 加权平均价 — 含历史持仓成本
+	if (state.avgBuyPrice == null || state.solHolding - amountSol < 0.0001) {
+		// 冷启动 / 之前已清仓: 以本次价格作 avg
+		state.avgBuyPrice = price;
+	} else {
+		const oldCost = state.avgBuyPrice * (state.solHolding - amountSol);
+		const newCost = price * amountSol;
+		state.avgBuyPrice = (oldCost + newCost) / state.solHolding;
+	}
 	state.totalSpent += amountUsdt;
 	state.consecutiveDcaBuys++;
 	state.monthSpent.set(todayMonthKey, (state.monthSpent.get(todayMonthKey) || 0) + amountUsdt);
@@ -202,15 +226,26 @@ export function applyBuy(state, amountUsdt, amountSol, price, todayMonthKey) {
 
 /**
  * 应用 sell 后的状态变更（in-memory）
+ * 累加 realizedPnL = (sellPrice - avgBuyPrice) * amountSol (按本次卖出的成本基础)
+ * 卖光 (solHolding < dust) 时清 avgBuyPrice — 重新开始累计
  * @param {PortfolioState} state
  * @param {number} amountUsdt
  * @param {number} amountSol
+ * @param {number} price 卖出价
  * @param {number} stairIdx
  */
-export function applySell(state, amountUsdt, amountSol, stairIdx) {
+export function applySell(state, amountUsdt, amountSol, price, stairIdx) {
 	state.solHolding -= amountSol;
 	state.usdtBalance += amountUsdt;
 	state.totalSoldUSDT = (state.totalSoldUSDT || 0) + amountUsdt;
 	state.sellStairsTriggered.add(stairIdx);
 	state.consecutiveDcaBuys = 0;
+	// 累加已实现盈亏
+	if (state.avgBuyPrice != null) {
+		state.realizedPnL = (state.realizedPnL || 0) + (price - state.avgBuyPrice) * amountSol;
+	}
+	// 卖光 (剩 dust) → 清 avgBuyPrice, 下次买入以新价作 avg
+	if (state.solHolding < 0.0001) {
+		state.avgBuyPrice = null;
+	}
 }
