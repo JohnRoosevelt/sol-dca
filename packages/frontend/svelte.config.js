@@ -20,7 +20,12 @@ const config = {
 				remoteBindings: false
 			}
 		})
-	}
+  },
+  vitePlugin: {
+    inspector: {
+      showToggleButton: "always",
+    },
+  },
 };
 
 export default config;
