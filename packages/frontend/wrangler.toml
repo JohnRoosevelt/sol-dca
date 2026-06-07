@@ -22,10 +22,7 @@ pages_build_output_dir = ".svelte-kit/cloudflare"
 binding = "SOL_DCA_WORKER"
 service = "sol-dca-do-worker"
 
-# === Vars (非敏感) ===
-# 运行时 vars 在 Pages dashboard 设 (Environment variables), 不写 wrangler.toml —
-# 否则 build 时被冻成静态值, dev / staging / prod 切不灵活
-# 需要: PUBLIC_WS_URL = "wss://sol-dca-do-worker.<sub>.workers.dev/ws"
+
 
 # === Observability ===
 [observability]
