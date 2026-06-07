@@ -54,7 +54,7 @@ export default {
 		}
 
 		// HTTP 路由 — 转发到 DO 内部路由
-		if (path === '/state' || path === '/control') {
+		if (path === '/state' || path === '/control' || path === '/recent_signals' || path === '/recent_trades') {
 			return stub.fetch(new Request(
 				`https://do${path}${url.search}`,
 				{
@@ -68,7 +68,7 @@ export default {
 		return new Response(
 			JSON.stringify({
 				error: 'not found',
-				available: ['/health', '/ws (websocket upgrade)', '/state', '/control (POST)']
+				available: ['/health', '/ws (websocket upgrade)', '/state', '/recent_signals', '/recent_trades', '/control (POST)']
 			}),
 			{ status: 404, headers: { 'Content-Type': 'application/json' } }
 		);

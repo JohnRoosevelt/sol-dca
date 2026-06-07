@@ -5,12 +5,21 @@
 	let { initial = {} } = $props();
 
 	// === Realtime state (Svelte 5 runes) ===
+	// 注: initial prop 只在组件 mount 时读一次, 之后改 initial 不会自动更新
+	// (WS hello 消息会在 onMount 后立即推送, 所以实际 portfolio 不会卡在 SSR 时的快照)
+	/* svelte-ignore state_referenced_locally */
 	let portfolio = $state(initial.portfolio ?? null);
+	/* svelte-ignore state_referenced_locally */
 	let paused = $state(initial.paused ?? false);
+	/* svelte-ignore state_referenced_locally */
 	let okxWsState = $state(initial.okxWsState ?? 'init');
+	/* svelte-ignore state_referenced_locally */
 	let lastTickerPrice = $state(initial.lastTickerPrice ?? 0);
+	/* svelte-ignore state_referenced_locally */
 	let lastTickerAt = $state(initial.lastTickerAt ?? 0);
+	/* svelte-ignore state_referenced_locally */
 	let missingCredentials = $state(initial.missingCredentials ?? []);
+	/* svelte-ignore state_referenced_locally */
 	let sabbath = $state(initial.sabbath ?? false);
 	let connected = $state(false);
 	let wsState = $state('connecting'); // connecting | open | closed | error

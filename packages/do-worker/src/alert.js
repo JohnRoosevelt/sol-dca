@@ -57,15 +57,37 @@ function isBark(url) {
 	}
 }
 
+// 报警 rate limit: 同一 (level + title) 在窗口内只发一次, 避免 WS 重连/启动风暴刷屏飞书
+//   info: 5min 冷却 (OKX WS connected / BUY executed 等日常事件)
+//   warn: 2min 冷却 (Ticker silent 等需要关注但不紧急)
+//   error: 不限 (BUY failed 等紧急事件, 每次都发)
+const ALERT_COOLDOWN_MS = {
+	info: 5 * 60 * 1000,
+	warn: 2 * 60 * 1000
+	// error 故意没有 → 紧急事件不限
+};
+const alertCooldowns = new Map(); // key = `${level}:${title}` → last sent timestamp
+
 /**
  * 发送报警
  * @param {string} url
  * @param {string} title
  * @param {string} body
  * @param {string} [level] info / warn / error
- * @returns {Promise<{ok: boolean, status?: number, error?: string}>}
+ * @returns {Promise<{ok: boolean, status?: number, error?: string, skipped?: boolean}>}
  */
 export async function sendAlert(url, title, body, level = 'info') {
+	const cooldownMs = ALERT_COOLDOWN_MS[level];
+	if (cooldownMs) {
+		const cooldownKey = `${level}:${title}`;
+		const lastSent = alertCooldowns.get(cooldownKey) || 0;
+		const now = Date.now();
+		if (now - lastSent < cooldownMs) {
+			return { ok: true, skipped: true, reason: 'rate-limited' };
+		}
+		alertCooldowns.set(cooldownKey, now);
+	}
+
 	if (!url) {
 		console.log(`[alert:${level}] ${title} -- ${body}`);
 		return { ok: true, skipped: true };

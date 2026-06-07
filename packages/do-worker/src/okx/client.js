@@ -119,10 +119,15 @@ export class OkxClient {
 	 * @param {string} instId
 	 * @param {number} amountUsdt
 	 * @param {string} clOrdId
+	 * @param {number} [lastPrice] 可选:已知的最新价格, 用它算 sz 跳过额外 /api/v5/market/ticker call
+	 *   (省 ~50ms, 接受微小滑点, market order 本来就接受)
 	 */
-	async marketBuy(instId, amountUsdt, clOrdId) {
-		const ticker = await this.publicRequest('/api/v5/market/ticker', { instId });
-		const price = parseFloat(ticker[0].last);
+	async marketBuy(instId, amountUsdt, clOrdId, lastPrice = null) {
+		let price = lastPrice;
+		if (price == null) {
+			const ticker = await this.publicRequest('/api/v5/market/ticker', { instId });
+			price = parseFloat(ticker[0].last);
+		}
 		const sz = (amountUsdt / price).toFixed(4);
 		return this.privateRequest('POST', '/api/v5/trade/order', {
 			instId,
