@@ -4,7 +4,30 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		%sveltekit.head%
+		<style>
+			/* === 全局滚动条修饰 === */
+			::-webkit-scrollbar {
+				width: 6px;
+				height: 6px;
+			}
+			::-webkit-scrollbar-track {
+				background: #1a1a1a;
+			}
+			::-webkit-scrollbar-thumb {
+				background: #3f3f46;
+				border-radius: 3px;
+			}
+			::-webkit-scrollbar-thumb:hover {
+				background: #52525b;
+			}
+			/* Firefox */
+			* {
+				scrollbar-width: thin;
+				scrollbar-color: #3f3f46 #1a1a1a;
+			}
+		</style>
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>

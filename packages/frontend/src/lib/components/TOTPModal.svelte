@@ -101,6 +101,8 @@
 			}
 		} catch (_) {
 			errorMsg = '验证失败，请重试';
+			open = false;
+			onCancel();
 		} finally {
 			verifying = false;
 		}

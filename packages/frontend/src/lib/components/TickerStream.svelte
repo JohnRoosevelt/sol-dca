@@ -76,16 +76,6 @@
 		}
 	}
 
-	/** 跨 tab 同步: tab A 验证通过, tab B 立即感知并免验证 */
-	onMount(() => {
-		window.addEventListener('storage', (e) => {
-			if (e.key === TOTP_VERIFIED_KEY && e.newValue) {
-				// 另一个 tab 刚写入了时间戳 — 刷新当前 tab 的 grace 状态
-				// 如果当前 pendingMode = 'live' 且弹了 modal, 下次 switch 会跳过
-			}
-		});
-	});
-
 	function confirmTotpAndSwitch() {
 		showTotpModal = false;
 		const target = pendingMode || 'live';
