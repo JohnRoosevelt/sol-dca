@@ -2,7 +2,6 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { WS_URL, TOTP_SECRET } from '$lib/config.js';
 	import TOTPModal from '$lib/components/TOTPModal.svelte';
-	// OWL logo: static/owl-logo.svg (Game Icons, MIT)
 
 	// +page.svelte 把 SSR data 包成 initial prop 传过来
 	let { initial = {} } = $props();
@@ -467,13 +466,12 @@
 <div class="stream">
 	<header class="topbar">
 		<div class="brand">
-							<img
-					class="logo"
-					src="/owl-logo.svg"
-					alt="OWL"
-					aria-label="OWL"
-					role="img"
-				/>
+			<img
+				class="logo"
+				src="/logo.svg"
+				alt="OWL"
+				aria-label="OWL"
+			/>
 
 			<h1>SOL DCA Dashboard</h1>
 		</div>
