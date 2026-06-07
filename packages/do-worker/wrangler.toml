@@ -1,0 +1,55 @@
+# DO Worker — 独立 Cloudflare Worker
+# 部署：wrangler deploy
+#
+# 责任：
+#   1. 持 TickerHub Durable Object（OKX WS + 浏览器 WS 桥接 + 策略状态机）
+#   2. 暴露 /ws /state /control 路由给 Pages Function 通过 service binding 调用
+#   3. 浏览器 WebSocket 客户端直连 worker URL（Pages Functions 不支持 WS upgrade）
+#
+# Bindings:
+#   SOL_DCA_TICKER_HUB  — Durable Object (class "TickerHub")
+#   SOL_DCA_DB          — D1 (trades / signals / portfolio_state 写入)
+#
+# Secrets (wrangler secret put):
+#   OKX_DEMO_API_KEY / OKX_DEMO_API_SECRET / OKX_DEMO_PASSPHRASE  (Phase 1)
+#   OKX_LIVE_API_KEY / OKX_LIVE_API_SECRET / OKX_LIVE_PASSPHRASE  (Phase 2)
+#   OKX_DEMO_MODE  (默认 "1", 切 live 改 "0")
+#   ALERT_WEBHOOK_URL (可选, 飞书 / Bark / 通用 JSON)
+
+name = "sol-dca-do-worker"
+main = "src/index.js"
+compatibility_date = "2026-06-06"
+compatibility_flags = ["nodejs_als"]
+workers_dev = true
+
+# === Durable Object: TickerHub ===
+# class "TickerHub" 在 src/index.js 顶部 export, 跟 src/ticker-hub.js 里定义一致
+[[durable_objects.bindings]]
+name = "SOL_DCA_TICKER_HUB"
+class_name = "TickerHub"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TickerHub"]
+
+# === D1 (策略写入) ===
+# 跟 frontend 的 SOL_DCA_DB 同一个 database_id, 是同一个 D1
+[[d1_databases]]
+binding = "SOL_DCA_DB"
+database_name = "sol-dca-dashboard"
+database_id = "5ade6a02-5aad-40a8-9e67-d6b0a837a0bb"
+migrations_dir = "drizzle/migrations"
+remote = true
+
+# === Vars (非敏感) ===
+[vars]
+OKX_PUBLIC_WS = "wss://ws.okx.com:8443/ws/v5/public"
+OKX_API_BASE = "https://www.okx.com"
+OKX_INST_ID = "SOL-USDT"
+OKX_TICKER_CHANNEL = "tickers"
+DEFAULT_TICKER_HUB_NAME = "sol-usdt"
+OKX_DEMO_MODE = "1"
+
+# === Observability ===
+[observability]
+enabled = true

@@ -1,0 +1,29 @@
+{
+	"name": "sol-dca-frontend",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"description": "SvelteKit frontend — deployed to Cloudflare Pages",
+	"scripts": {
+		"dev": "PUBLIC_WS_URL=${PUBLIC_WS_URL:-ws://localhost:8787/ws} vite dev --port 5173",
+		"build": "wrangler types --check && vite build",
+		"preview": "vite preview",
+		"deploy": "wrangler pages deploy .svelte-kit/cloudflare --project-name sol-dca-dashboard",
+		"check": "wrangler types --check && svelte-kit sync && svelte-check --tsconfig ./jsconfig.json",
+		"prepare": "svelte-kit sync || echo ''"
+	},
+	"dependencies": {
+		"drizzle-orm": "^0.45.2"
+	},
+	"devDependencies": {
+		"@cloudflare/vite-plugin": "^1.40.0",
+		"@sveltejs/adapter-cloudflare": "^7.2.8",
+		"@sveltejs/kit": "^2.57.0",
+		"@sveltejs/vite-plugin-svelte": "^7.0.0",
+		"drizzle-kit": "^0.31.10",
+		"svelte": "^5.55.2",
+		"svelte-check": "^4.4.6",
+		"vite": "^8.0.7",
+		"wrangler": "^4.81.0"
+	}
+}

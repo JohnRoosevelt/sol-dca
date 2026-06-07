@@ -1,0 +1,2467 @@
+{
+  "generatedAt": "2026-06-06T15:24:02.827Z",
+  "variants": [
+    {
+      "id": "V1_e5",
+      "label": "E 基线（启动即首买 + 5% 触发）",
+      "firstBuy": "immediate",
+      "triggerPct": 5
+    },
+    {
+      "id": "V2_e2",
+      "label": "激进（启动即首买 + 2% 触发）",
+      "firstBuy": "immediate",
+      "triggerPct": 2
+    },
+    {
+      "id": "V3_e3",
+      "label": "中等（启动即首买 + 3% 触发）",
+      "firstBuy": "immediate",
+      "triggerPct": 3
+    },
+    {
+      "id": "V4_wait10",
+      "label": "保守（等跌 10% 首买 + 5% 触发）",
+      "firstBuy": "wait10",
+      "triggerPct": 5
+    }
+  ],
+  "lowStartDates": [
+    {
+      "id": "low_2020_09",
+      "label": "2020-09 SOL 跌到 $1.5（DeFi 热度退潮）",
+      "start": "2020-09-20",
+      "evalDate": "2021-12-20"
+    },
+    {
+      "id": "low_2021_07",
+      "label": "2021-07 BTC 腰斩后（SOL ~$25）",
+      "start": "2021-07-20",
+      "evalDate": "2022-12-20"
+    },
+    {
+      "id": "low_2022_11",
+      "label": "2022-11 FTX 崩盘（SOL ~$13）",
+      "start": "2022-11-20",
+      "evalDate": "2023-12-20"
+    },
+    {
+      "id": "low_2023_10",
+      "label": "2023-10 熊末（SOL ~$20）",
+      "start": "2023-10-20",
+      "evalDate": "2024-12-20"
+    },
+    {
+      "id": "low_2024_08",
+      "label": "2024-08 中段（SOL ~$140）",
+      "start": "2024-08-20",
+      "evalDate": "2025-08-20"
+    }
+  ],
+  "results": [
+    {
+      "startPrice": 2.88,
+      "finalPrice": 177.45,
+      "buyCount": 10,
+      "totalSpent": 360,
+      "usdtRemaining": 6640,
+      "solHolding": 193.04681519527907,
+      "finalValue": 40896.15735640227,
+      "finalProfit": 33896.15735640227,
+      "totalReturnPct": 484.23081937717524,
+      "maxDrawdown": -34.712968122400625,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2020-09-29",
+          "type": "FIRST_BUY",
+          "price": 2.88,
+          "usdtSpent": 30,
+          "solBought": 10.416666666666668,
+          "cumulativeSol": 10.416666666666668,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2020-10-01",
+          "type": "BUY",
+          "price": 2.63,
+          "usdtSpent": 30,
+          "solBought": 11.406844106463879,
+          "dropPct": 8.680555555555555,
+          "mult": 1,
+          "cumulativeSol": 21.823510773130547,
+          "note": "跌 8.7% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-03",
+          "type": "BUY",
+          "price": 2.48,
+          "usdtSpent": 30,
+          "solBought": 12.096774193548388,
+          "dropPct": 5.703422053231936,
+          "mult": 1,
+          "cumulativeSol": 33.920284966678935,
+          "note": "跌 5.7% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-06",
+          "type": "BUY",
+          "price": 2.26,
+          "usdtSpent": 30,
+          "solBought": 13.274336283185843,
+          "dropPct": 8.870967741935491,
+          "mult": 1,
+          "cumulativeSol": 47.19462124986478,
+          "note": "跌 8.9% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-18",
+          "type": "BUY",
+          "price": 2.1,
+          "usdtSpent": 30,
+          "solBought": 14.285714285714285,
+          "dropPct": 7.079646017699102,
+          "mult": 1,
+          "cumulativeSol": 61.480335535579066,
+          "note": "跌 7.1% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-19",
+          "type": "BUY",
+          "price": 1.89,
+          "usdtSpent": 60,
+          "solBought": 31.746031746031747,
+          "dropPct": 10.000000000000009,
+          "mult": 2,
+          "cumulativeSol": 93.2263672816108,
+          "note": "跌 10.0% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2020-10-25",
+          "type": "BUY",
+          "price": 1.77,
+          "usdtSpent": 30,
+          "solBought": 16.949152542372882,
+          "dropPct": 6.3492063492063435,
+          "mult": 1,
+          "cumulativeSol": 110.17551982398369,
+          "note": "跌 6.3% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-27",
+          "type": "BUY",
+          "price": 1.54,
+          "usdtSpent": 60,
+          "solBought": 38.96103896103896,
+          "dropPct": 12.994350282485875,
+          "mult": 2,
+          "cumulativeSol": 149.13655878502266,
+          "note": "跌 13.0% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2020-10-29",
+          "type": "BUY",
+          "price": 1.44,
+          "usdtSpent": 30,
+          "solBought": 20.833333333333336,
+          "dropPct": 6.493506493506499,
+          "mult": 1,
+          "cumulativeSol": 169.969892118356,
+          "note": "跌 6.5% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-11-03",
+          "type": "BUY",
+          "price": 1.3,
+          "usdtSpent": 30,
+          "solBought": 23.076923076923077,
+          "dropPct": 9.722222222222216,
+          "mult": 1,
+          "cumulativeSol": 193.04681519527907,
+          "note": "跌 9.7% 触发 1x, 买 $30"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1602950400000,
+          "open": 2.17,
+          "high": 2.24,
+          "low": 2.16,
+          "close": 2.23,
+          "date": "2020-10-17"
+        },
+        "3m": {
+          "ts": 1607961600000,
+          "open": 1.56,
+          "high": 1.8,
+          "low": 1.54,
+          "close": 1.73,
+          "date": "2020-12-14"
+        },
+        "6m": {
+          "ts": 1615564800000,
+          "open": 15.53,
+          "high": 15.59,
+          "low": 13.9,
+          "close": 14.88,
+          "date": "2021-03-12"
+        }
+      },
+      "id": "low_2020_09_V1_e5",
+      "window": {
+        "id": "low_2020_09",
+        "label": "2020-09 SOL 跌到 $1.5（DeFi 热度退潮）",
+        "start": "2020-09-20",
+        "evalDate": "2021-12-20"
+      },
+      "variant": {
+        "id": "V1_e5",
+        "label": "E 基线（启动即首买 + 5% 触发）",
+        "firstBuy": "immediate",
+        "triggerPct": 5
+      }
+    },
+    {
+      "startPrice": 2.88,
+      "finalPrice": 177.45,
+      "buyCount": 13,
+      "totalSpent": 450,
+      "usdtRemaining": 6550,
+      "solHolding": 243.6246830488944,
+      "finalValue": 49781.20000702631,
+      "finalProfit": 42781.20000702631,
+      "totalReturnPct": 611.1600001003758,
+      "maxDrawdown": -37.95973057366275,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2020-09-29",
+          "type": "FIRST_BUY",
+          "price": 2.88,
+          "usdtSpent": 30,
+          "solBought": 10.416666666666668,
+          "cumulativeSol": 10.416666666666668,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2020-10-01",
+          "type": "BUY",
+          "price": 2.63,
+          "usdtSpent": 30,
+          "solBought": 11.406844106463879,
+          "dropPct": 8.680555555555555,
+          "mult": 1,
+          "cumulativeSol": 21.823510773130547,
+          "note": "跌 8.7% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-03",
+          "type": "BUY",
+          "price": 2.48,
+          "usdtSpent": 30,
+          "solBought": 12.096774193548388,
+          "dropPct": 5.703422053231936,
+          "mult": 1,
+          "cumulativeSol": 33.920284966678935,
+          "note": "跌 5.7% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-06",
+          "type": "BUY",
+          "price": 2.26,
+          "usdtSpent": 30,
+          "solBought": 13.274336283185843,
+          "dropPct": 8.870967741935491,
+          "mult": 1,
+          "cumulativeSol": 47.19462124986478,
+          "note": "跌 8.9% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-15",
+          "type": "BUY",
+          "price": 2.15,
+          "usdtSpent": 30,
+          "solBought": 13.953488372093023,
+          "dropPct": 4.867256637168136,
+          "mult": 1,
+          "cumulativeSol": 61.1481096219578,
+          "note": "跌 4.9% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-18",
+          "type": "BUY",
+          "price": 2.1,
+          "usdtSpent": 30,
+          "solBought": 14.285714285714285,
+          "dropPct": 2.3255813953488293,
+          "mult": 1,
+          "cumulativeSol": 75.43382390767209,
+          "note": "跌 2.3% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-19",
+          "type": "BUY",
+          "price": 1.89,
+          "usdtSpent": 60,
+          "solBought": 31.746031746031747,
+          "dropPct": 10.000000000000009,
+          "mult": 2,
+          "cumulativeSol": 107.17985565370384,
+          "note": "跌 10.0% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2020-10-24",
+          "type": "BUY",
+          "price": 1.85,
+          "usdtSpent": 30,
+          "solBought": 16.216216216216214,
+          "dropPct": 2.1164021164021065,
+          "mult": 1,
+          "cumulativeSol": 123.39607186992005,
+          "note": "跌 2.1% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-25",
+          "type": "BUY",
+          "price": 1.77,
+          "usdtSpent": 30,
+          "solBought": 16.949152542372882,
+          "dropPct": 4.324324324324328,
+          "mult": 1,
+          "cumulativeSol": 140.34522441229294,
+          "note": "跌 4.3% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-27",
+          "type": "BUY",
+          "price": 1.54,
+          "usdtSpent": 60,
+          "solBought": 38.96103896103896,
+          "dropPct": 12.994350282485875,
+          "mult": 2,
+          "cumulativeSol": 179.3062633733319,
+          "note": "跌 13.0% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2020-10-28",
+          "type": "BUY",
+          "price": 1.47,
+          "usdtSpent": 30,
+          "solBought": 20.408163265306122,
+          "dropPct": 4.545454545454549,
+          "mult": 1,
+          "cumulativeSol": 199.714426638638,
+          "note": "跌 4.5% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-29",
+          "type": "BUY",
+          "price": 1.44,
+          "usdtSpent": 30,
+          "solBought": 20.833333333333336,
+          "dropPct": 2.040816326530614,
+          "mult": 1,
+          "cumulativeSol": 220.54775997197135,
+          "note": "跌 2.0% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-11-03",
+          "type": "BUY",
+          "price": 1.3,
+          "usdtSpent": 30,
+          "solBought": 23.076923076923077,
+          "dropPct": 9.722222222222216,
+          "mult": 1,
+          "cumulativeSol": 243.6246830488944,
+          "note": "跌 9.7% 触发 1x, 买 $30"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1602950400000,
+          "open": 2.17,
+          "high": 2.24,
+          "low": 2.16,
+          "close": 2.23,
+          "date": "2020-10-17"
+        },
+        "3m": {
+          "ts": 1607961600000,
+          "open": 1.56,
+          "high": 1.8,
+          "low": 1.54,
+          "close": 1.73,
+          "date": "2020-12-14"
+        },
+        "6m": {
+          "ts": 1615564800000,
+          "open": 15.53,
+          "high": 15.59,
+          "low": 13.9,
+          "close": 14.88,
+          "date": "2021-03-12"
+        }
+      },
+      "id": "low_2020_09_V2_e2",
+      "window": {
+        "id": "low_2020_09",
+        "label": "2020-09 SOL 跌到 $1.5（DeFi 热度退潮）",
+        "start": "2020-09-20",
+        "evalDate": "2021-12-20"
+      },
+      "variant": {
+        "id": "V2_e2",
+        "label": "激进（启动即首买 + 2% 触发）",
+        "firstBuy": "immediate",
+        "triggerPct": 2
+      }
+    },
+    {
+      "startPrice": 2.88,
+      "finalPrice": 177.45,
+      "buyCount": 10,
+      "totalSpent": 390,
+      "usdtRemaining": 6610,
+      "solHolding": 215.36634229055366,
+      "finalValue": 44826.75743945874,
+      "finalProfit": 37826.75743945874,
+      "totalReturnPct": 540.382249135125,
+      "maxDrawdown": -36.24175407577781,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2020-09-29",
+          "type": "FIRST_BUY",
+          "price": 2.88,
+          "usdtSpent": 30,
+          "solBought": 10.416666666666668,
+          "cumulativeSol": 10.416666666666668,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2020-10-01",
+          "type": "BUY",
+          "price": 2.63,
+          "usdtSpent": 30,
+          "solBought": 11.406844106463879,
+          "dropPct": 8.680555555555555,
+          "mult": 1,
+          "cumulativeSol": 21.823510773130547,
+          "note": "跌 8.7% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-03",
+          "type": "BUY",
+          "price": 2.48,
+          "usdtSpent": 30,
+          "solBought": 12.096774193548388,
+          "dropPct": 5.703422053231936,
+          "mult": 1,
+          "cumulativeSol": 33.920284966678935,
+          "note": "跌 5.7% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-06",
+          "type": "BUY",
+          "price": 2.26,
+          "usdtSpent": 30,
+          "solBought": 13.274336283185843,
+          "dropPct": 8.870967741935491,
+          "mult": 1,
+          "cumulativeSol": 47.19462124986478,
+          "note": "跌 8.9% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-15",
+          "type": "BUY",
+          "price": 2.15,
+          "usdtSpent": 30,
+          "solBought": 13.953488372093023,
+          "dropPct": 4.867256637168136,
+          "mult": 1,
+          "cumulativeSol": 61.1481096219578,
+          "note": "跌 4.9% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-19",
+          "type": "BUY",
+          "price": 1.89,
+          "usdtSpent": 60,
+          "solBought": 31.746031746031747,
+          "dropPct": 12.093023255813955,
+          "mult": 2,
+          "cumulativeSol": 92.89414136798955,
+          "note": "跌 12.1% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2020-10-25",
+          "type": "BUY",
+          "price": 1.77,
+          "usdtSpent": 30,
+          "solBought": 16.949152542372882,
+          "dropPct": 6.3492063492063435,
+          "mult": 1,
+          "cumulativeSol": 109.84329391036243,
+          "note": "跌 6.3% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-27",
+          "type": "BUY",
+          "price": 1.54,
+          "usdtSpent": 60,
+          "solBought": 38.96103896103896,
+          "dropPct": 12.994350282485875,
+          "mult": 2,
+          "cumulativeSol": 148.80433287140139,
+          "note": "跌 13.0% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2020-10-28",
+          "type": "BUY",
+          "price": 1.47,
+          "usdtSpent": 30,
+          "solBought": 20.408163265306122,
+          "dropPct": 4.545454545454549,
+          "mult": 1,
+          "cumulativeSol": 169.2124961367075,
+          "note": "跌 4.5% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-11-03",
+          "type": "BUY",
+          "price": 1.3,
+          "usdtSpent": 60,
+          "solBought": 46.15384615384615,
+          "dropPct": 11.56462585034013,
+          "mult": 2,
+          "cumulativeSol": 215.36634229055366,
+          "note": "跌 11.6% 触发 2x, 买 $60"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1602950400000,
+          "open": 2.17,
+          "high": 2.24,
+          "low": 2.16,
+          "close": 2.23,
+          "date": "2020-10-17"
+        },
+        "3m": {
+          "ts": 1607961600000,
+          "open": 1.56,
+          "high": 1.8,
+          "low": 1.54,
+          "close": 1.73,
+          "date": "2020-12-14"
+        },
+        "6m": {
+          "ts": 1615564800000,
+          "open": 15.53,
+          "high": 15.59,
+          "low": 13.9,
+          "close": 14.88,
+          "date": "2021-03-12"
+        }
+      },
+      "id": "low_2020_09_V3_e3",
+      "window": {
+        "id": "low_2020_09",
+        "label": "2020-09 SOL 跌到 $1.5（DeFi 热度退潮）",
+        "start": "2020-09-20",
+        "evalDate": "2021-12-20"
+      },
+      "variant": {
+        "id": "V3_e3",
+        "label": "中等（启动即首买 + 3% 触发）",
+        "firstBuy": "immediate",
+        "triggerPct": 3
+      }
+    },
+    {
+      "startPrice": 2.88,
+      "finalPrice": 177.45,
+      "buyCount": 5,
+      "totalSpent": 180,
+      "usdtRemaining": 6820,
+      "solHolding": 115.69346378668415,
+      "finalValue": 27349.8051489471,
+      "finalProfit": 20349.8051489471,
+      "totalReturnPct": 290.7115021278157,
+      "maxDrawdown": -30.60594722935519,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2020-10-19",
+          "type": "FIRST_BUY",
+          "price": 1.89,
+          "usdtSpent": 30,
+          "solBought": 15.873015873015873,
+          "cumulativeSol": 15.873015873015873,
+          "note": "等跌 10% 首买 (从 $2.88 跌到 $1.89)"
+        },
+        {
+          "date": "2020-10-25",
+          "type": "BUY",
+          "price": 1.77,
+          "usdtSpent": 30,
+          "solBought": 16.949152542372882,
+          "dropPct": 6.3492063492063435,
+          "mult": 1,
+          "cumulativeSol": 32.82216841538876,
+          "note": "跌 6.3% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-27",
+          "type": "BUY",
+          "price": 1.54,
+          "usdtSpent": 60,
+          "solBought": 38.96103896103896,
+          "dropPct": 12.994350282485875,
+          "mult": 2,
+          "cumulativeSol": 71.78320737642773,
+          "note": "跌 13.0% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2020-10-29",
+          "type": "BUY",
+          "price": 1.44,
+          "usdtSpent": 30,
+          "solBought": 20.833333333333336,
+          "dropPct": 6.493506493506499,
+          "mult": 1,
+          "cumulativeSol": 92.61654070976107,
+          "note": "跌 6.5% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-11-03",
+          "type": "BUY",
+          "price": 1.3,
+          "usdtSpent": 30,
+          "solBought": 23.076923076923077,
+          "dropPct": 9.722222222222216,
+          "mult": 1,
+          "cumulativeSol": 115.69346378668415,
+          "note": "跌 9.7% 触发 1x, 买 $30"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1602950400000,
+          "open": 2.17,
+          "high": 2.24,
+          "low": 2.16,
+          "close": 2.23,
+          "date": "2020-10-17"
+        },
+        "3m": {
+          "ts": 1607961600000,
+          "open": 1.56,
+          "high": 1.8,
+          "low": 1.54,
+          "close": 1.73,
+          "date": "2020-12-14"
+        },
+        "6m": {
+          "ts": 1615564800000,
+          "open": 15.53,
+          "high": 15.59,
+          "low": 13.9,
+          "close": 14.88,
+          "date": "2021-03-12"
+        }
+      },
+      "id": "low_2020_09_V4_wait10",
+      "window": {
+        "id": "low_2020_09",
+        "label": "2020-09 SOL 跌到 $1.5（DeFi 热度退潮）",
+        "start": "2020-09-20",
+        "evalDate": "2021-12-20"
+      },
+      "variant": {
+        "id": "V4_wait10",
+        "label": "保守（等跌 10% 首买 + 5% 触发）",
+        "firstBuy": "wait10",
+        "triggerPct": 5
+      }
+    },
+    {
+      "startPrice": 26.95,
+      "finalPrice": 12.06,
+      "buyCount": 6,
+      "totalSpent": 270,
+      "usdtRemaining": 6730,
+      "solHolding": 17.633864793034363,
+      "finalValue": 6942.664409403995,
+      "finalProfit": -57.335590596005204,
+      "totalReturnPct": -0.8190798656572172,
+      "maxDrawdown": -4.297359781303565,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2021-07-20",
+          "type": "FIRST_BUY",
+          "price": 26.95,
+          "usdtSpent": 30,
+          "solBought": 1.1131725417439704,
+          "cumulativeSol": 1.1131725417439704,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2022-11-08",
+          "type": "BUY",
+          "price": 16.02,
+          "usdtSpent": 120,
+          "solBought": 7.490636704119851,
+          "dropPct": 40.55658627087199,
+          "mult": 4,
+          "cumulativeSol": 8.603809245863822,
+          "note": "跌 40.6% 触发 4x, 买 $120"
+        },
+        {
+          "date": "2022-11-11",
+          "type": "BUY",
+          "price": 14.83,
+          "usdtSpent": 30,
+          "solBought": 2.0229265003371544,
+          "dropPct": 7.428214731585515,
+          "mult": 1,
+          "cumulativeSol": 10.626735746200977,
+          "note": "跌 7.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-12",
+          "type": "BUY",
+          "price": 14.06,
+          "usdtSpent": 30,
+          "solBought": 2.1337126600284493,
+          "dropPct": 5.192178017532027,
+          "mult": 1,
+          "cumulativeSol": 12.760448406229425,
+          "note": "跌 5.2% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-18",
+          "type": "BUY",
+          "price": 12.73,
+          "usdtSpent": 30,
+          "solBought": 2.356637863315004,
+          "dropPct": 9.45945945945946,
+          "mult": 1,
+          "cumulativeSol": 15.11708626954443,
+          "note": "跌 9.5% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-20",
+          "type": "BUY",
+          "price": 11.92,
+          "usdtSpent": 30,
+          "solBought": 2.5167785234899327,
+          "dropPct": 6.362922230950514,
+          "mult": 1,
+          "cumulativeSol": 17.633864793034363,
+          "note": "跌 6.4% 触发 1x, 买 $30"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1629129600000,
+          "open": 67.08,
+          "high": 75.02,
+          "low": 61.3,
+          "close": 69.87,
+          "date": "2021-08-16"
+        },
+        "3m": {
+          "ts": 1634140800000,
+          "open": 146.3,
+          "high": 160.66,
+          "low": 144.44,
+          "close": 152.79,
+          "date": "2021-10-13"
+        },
+        "6m": {
+          "ts": 1641744000000,
+          "open": 140.11,
+          "high": 145.71,
+          "low": 130,
+          "close": 133.14,
+          "date": "2022-01-09"
+        }
+      },
+      "id": "low_2021_07_V1_e5",
+      "window": {
+        "id": "low_2021_07",
+        "label": "2021-07 BTC 腰斩后（SOL ~$25）",
+        "start": "2021-07-20",
+        "evalDate": "2022-12-20"
+      },
+      "variant": {
+        "id": "V1_e5",
+        "label": "E 基线（启动即首买 + 5% 触发）",
+        "firstBuy": "immediate",
+        "triggerPct": 5
+      }
+    },
+    {
+      "startPrice": 26.95,
+      "finalPrice": 12.06,
+      "buyCount": 8,
+      "totalSpent": 330,
+      "usdtRemaining": 6670,
+      "solHolding": 22.06596269635309,
+      "finalValue": 6936.115510118018,
+      "finalProfit": -63.88448988198161,
+      "totalReturnPct": -0.9126355697425944,
+      "maxDrawdown": -4.396222964840703,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2021-07-20",
+          "type": "FIRST_BUY",
+          "price": 26.95,
+          "usdtSpent": 30,
+          "solBought": 1.1131725417439704,
+          "cumulativeSol": 1.1131725417439704,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2022-11-08",
+          "type": "BUY",
+          "price": 16.02,
+          "usdtSpent": 120,
+          "solBought": 7.490636704119851,
+          "dropPct": 40.55658627087199,
+          "mult": 4,
+          "cumulativeSol": 8.603809245863822,
+          "note": "跌 40.6% 触发 4x, 买 $120"
+        },
+        {
+          "date": "2022-11-11",
+          "type": "BUY",
+          "price": 14.83,
+          "usdtSpent": 30,
+          "solBought": 2.0229265003371544,
+          "dropPct": 7.428214731585515,
+          "mult": 1,
+          "cumulativeSol": 10.626735746200977,
+          "note": "跌 7.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-12",
+          "type": "BUY",
+          "price": 14.06,
+          "usdtSpent": 30,
+          "solBought": 2.1337126600284493,
+          "dropPct": 5.192178017532027,
+          "mult": 1,
+          "cumulativeSol": 12.760448406229425,
+          "note": "跌 5.2% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-13",
+          "type": "BUY",
+          "price": 13.72,
+          "usdtSpent": 30,
+          "solBought": 2.186588921282799,
+          "dropPct": 2.4182076813655753,
+          "mult": 1,
+          "cumulativeSol": 14.947037327512223,
+          "note": "跌 2.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-17",
+          "type": "BUY",
+          "price": 13.36,
+          "usdtSpent": 30,
+          "solBought": 2.245508982035928,
+          "dropPct": 2.6239067055393672,
+          "mult": 1,
+          "cumulativeSol": 17.192546309548153,
+          "note": "跌 2.6% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-18",
+          "type": "BUY",
+          "price": 12.73,
+          "usdtSpent": 30,
+          "solBought": 2.356637863315004,
+          "dropPct": 4.7155688622754415,
+          "mult": 1,
+          "cumulativeSol": 19.549184172863157,
+          "note": "跌 4.7% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-20",
+          "type": "BUY",
+          "price": 11.92,
+          "usdtSpent": 30,
+          "solBought": 2.5167785234899327,
+          "dropPct": 6.362922230950514,
+          "mult": 1,
+          "cumulativeSol": 22.06596269635309,
+          "note": "跌 6.4% 触发 1x, 买 $30"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1629129600000,
+          "open": 67.08,
+          "high": 75.02,
+          "low": 61.3,
+          "close": 69.87,
+          "date": "2021-08-16"
+        },
+        "3m": {
+          "ts": 1634140800000,
+          "open": 146.3,
+          "high": 160.66,
+          "low": 144.44,
+          "close": 152.79,
+          "date": "2021-10-13"
+        },
+        "6m": {
+          "ts": 1641744000000,
+          "open": 140.11,
+          "high": 145.71,
+          "low": 130,
+          "close": 133.14,
+          "date": "2022-01-09"
+        }
+      },
+      "id": "low_2021_07_V2_e2",
+      "window": {
+        "id": "low_2021_07",
+        "label": "2021-07 BTC 腰斩后（SOL ~$25）",
+        "start": "2021-07-20",
+        "evalDate": "2022-12-20"
+      },
+      "variant": {
+        "id": "V2_e2",
+        "label": "激进（启动即首买 + 2% 触发）",
+        "firstBuy": "immediate",
+        "triggerPct": 2
+      }
+    },
+    {
+      "startPrice": 26.95,
+      "finalPrice": 12.06,
+      "buyCount": 7,
+      "totalSpent": 300,
+      "usdtRemaining": 6700,
+      "solHolding": 19.85115969325609,
+      "finalValue": 6939.404985900668,
+      "finalProfit": -60.59501409933182,
+      "totalReturnPct": -0.8656430585618831,
+      "maxDrawdown": -4.3465865737225915,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2021-07-20",
+          "type": "FIRST_BUY",
+          "price": 26.95,
+          "usdtSpent": 30,
+          "solBought": 1.1131725417439704,
+          "cumulativeSol": 1.1131725417439704,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2022-11-08",
+          "type": "BUY",
+          "price": 16.02,
+          "usdtSpent": 120,
+          "solBought": 7.490636704119851,
+          "dropPct": 40.55658627087199,
+          "mult": 4,
+          "cumulativeSol": 8.603809245863822,
+          "note": "跌 40.6% 触发 4x, 买 $120"
+        },
+        {
+          "date": "2022-11-11",
+          "type": "BUY",
+          "price": 14.83,
+          "usdtSpent": 30,
+          "solBought": 2.0229265003371544,
+          "dropPct": 7.428214731585515,
+          "mult": 1,
+          "cumulativeSol": 10.626735746200977,
+          "note": "跌 7.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-12",
+          "type": "BUY",
+          "price": 14.06,
+          "usdtSpent": 30,
+          "solBought": 2.1337126600284493,
+          "dropPct": 5.192178017532027,
+          "mult": 1,
+          "cumulativeSol": 12.760448406229425,
+          "note": "跌 5.2% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-16",
+          "type": "BUY",
+          "price": 13.53,
+          "usdtSpent": 30,
+          "solBought": 2.2172949002217295,
+          "dropPct": 3.7695590327169355,
+          "mult": 1,
+          "cumulativeSol": 14.977743306451154,
+          "note": "跌 3.8% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-18",
+          "type": "BUY",
+          "price": 12.73,
+          "usdtSpent": 30,
+          "solBought": 2.356637863315004,
+          "dropPct": 5.912786400591271,
+          "mult": 1,
+          "cumulativeSol": 17.334381169766157,
+          "note": "跌 5.9% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-20",
+          "type": "BUY",
+          "price": 11.92,
+          "usdtSpent": 30,
+          "solBought": 2.5167785234899327,
+          "dropPct": 6.362922230950514,
+          "mult": 1,
+          "cumulativeSol": 19.85115969325609,
+          "note": "跌 6.4% 触发 1x, 买 $30"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1629129600000,
+          "open": 67.08,
+          "high": 75.02,
+          "low": 61.3,
+          "close": 69.87,
+          "date": "2021-08-16"
+        },
+        "3m": {
+          "ts": 1634140800000,
+          "open": 146.3,
+          "high": 160.66,
+          "low": 144.44,
+          "close": 152.79,
+          "date": "2021-10-13"
+        },
+        "6m": {
+          "ts": 1641744000000,
+          "open": 140.11,
+          "high": 145.71,
+          "low": 130,
+          "close": 133.14,
+          "date": "2022-01-09"
+        }
+      },
+      "id": "low_2021_07_V3_e3",
+      "window": {
+        "id": "low_2021_07",
+        "label": "2021-07 BTC 腰斩后（SOL ~$25）",
+        "start": "2021-07-20",
+        "evalDate": "2022-12-20"
+      },
+      "variant": {
+        "id": "V3_e3",
+        "label": "中等（启动即首买 + 3% 触发）",
+        "firstBuy": "immediate",
+        "triggerPct": 3
+      }
+    },
+    {
+      "startPrice": 26.95,
+      "finalPrice": 12.06,
+      "buyCount": 21,
+      "totalSpent": 960,
+      "usdtRemaining": 6040,
+      "solHolding": 28.623961798255696,
+      "finalValue": 6385.204979286964,
+      "finalProfit": -614.7950207130361,
+      "totalReturnPct": -8.78278601018623,
+      "maxDrawdown": -10.122581617309088,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2021-09-09",
+          "type": "FIRST_BUY",
+          "price": 179.42,
+          "usdtSpent": 30,
+          "solBought": 0.16720543975030655,
+          "cumulativeSol": 0.16720543975030655,
+          "note": "等跌 10% 首买 (从 $26.95 跌到 $179.42)"
+        },
+        {
+          "date": "2021-09-12",
+          "type": "BUY",
+          "price": 156.94,
+          "usdtSpent": 60,
+          "solBought": 0.3823117114820951,
+          "dropPct": 12.529260951956298,
+          "mult": 2,
+          "cumulativeSol": 0.5495171512324016,
+          "note": "跌 12.5% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2021-09-16",
+          "type": "BUY",
+          "price": 144.63,
+          "usdtSpent": 30,
+          "solBought": 0.20742584526031943,
+          "dropPct": 7.843761947240985,
+          "mult": 1,
+          "cumulativeSol": 0.756942996492721,
+          "note": "跌 7.8% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2021-09-27",
+          "type": "BUY",
+          "price": 130.4,
+          "usdtSpent": 30,
+          "solBought": 0.2300613496932515,
+          "dropPct": 9.838899260181146,
+          "mult": 1,
+          "cumulativeSol": 0.9870043461859725,
+          "note": "跌 9.8% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-01-20",
+          "type": "BUY",
+          "price": 121.87,
+          "usdtSpent": 30,
+          "solBought": 0.24616394518749488,
+          "dropPct": 6.5414110429447865,
+          "mult": 1,
+          "cumulativeSol": 1.2331682913734674,
+          "note": "跌 6.5% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-01-21",
+          "type": "BUY",
+          "price": 93.01,
+          "usdtSpent": 90,
+          "solBought": 0.9676378883990968,
+          "dropPct": 23.680971527037006,
+          "mult": 3,
+          "cumulativeSol": 2.200806179772564,
+          "note": "跌 23.7% 触发 3x, 买 $90"
+        },
+        {
+          "date": "2022-01-23",
+          "type": "BUY",
+          "price": 87.49,
+          "usdtSpent": 30,
+          "solBought": 0.3428963310092582,
+          "dropPct": 5.934845715514472,
+          "mult": 1,
+          "cumulativeSol": 2.5437025107818223,
+          "note": "跌 5.9% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-03-07",
+          "type": "BUY",
+          "price": 82.75,
+          "usdtSpent": 30,
+          "solBought": 0.36253776435045315,
+          "dropPct": 5.4177620299462745,
+          "mult": 1,
+          "cumulativeSol": 2.9062402751322756,
+          "note": "跌 5.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-05-07",
+          "type": "BUY",
+          "price": 77.13,
+          "usdtSpent": 30,
+          "solBought": 0.38895371450797356,
+          "dropPct": 6.791540785498496,
+          "mult": 1,
+          "cumulativeSol": 3.295193989640249,
+          "note": "跌 6.8% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-05-08",
+          "type": "BUY",
+          "price": 69.89,
+          "usdtSpent": 30,
+          "solBought": 0.42924595793389614,
+          "dropPct": 9.386749643459089,
+          "mult": 1,
+          "cumulativeSol": 3.724439947574145,
+          "note": "跌 9.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-05-10",
+          "type": "BUY",
+          "price": 55.53,
+          "usdtSpent": 90,
+          "solBought": 1.6207455429497568,
+          "dropPct": 20.546573186435825,
+          "mult": 3,
+          "cumulativeSol": 5.345185490523902,
+          "note": "跌 20.5% 触发 3x, 买 $90"
+        },
+        {
+          "date": "2022-05-11",
+          "type": "BUY",
+          "price": 45.1,
+          "usdtSpent": 60,
+          "solBought": 1.3303769401330376,
+          "dropPct": 18.782640014406628,
+          "mult": 2,
+          "cumulativeSol": 6.67556243065694,
+          "note": "跌 18.8% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2022-05-26",
+          "type": "BUY",
+          "price": 42.17,
+          "usdtSpent": 30,
+          "solBought": 0.7114062129475931,
+          "dropPct": 6.496674057649667,
+          "mult": 1,
+          "cumulativeSol": 7.386968643604533,
+          "note": "跌 6.5% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-06-02",
+          "type": "BUY",
+          "price": 38.06,
+          "usdtSpent": 30,
+          "solBought": 0.7882291119285338,
+          "dropPct": 9.746265117382023,
+          "mult": 1,
+          "cumulativeSol": 8.175197755533066,
+          "note": "跌 9.7% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-06-10",
+          "type": "BUY",
+          "price": 33.74,
+          "usdtSpent": 60,
+          "solBought": 1.7783046828689981,
+          "dropPct": 11.350499211770888,
+          "mult": 2,
+          "cumulativeSol": 9.953502438402065,
+          "note": "跌 11.4% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2022-06-12",
+          "type": "BUY",
+          "price": 27.91,
+          "usdtSpent": 60,
+          "solBought": 2.149767108563239,
+          "dropPct": 17.27919383521044,
+          "mult": 2,
+          "cumulativeSol": 12.103269546965304,
+          "note": "跌 17.3% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2022-11-08",
+          "type": "BUY",
+          "price": 16.02,
+          "usdtSpent": 120,
+          "solBought": 7.490636704119851,
+          "dropPct": 42.601218201361526,
+          "mult": 4,
+          "cumulativeSol": 19.593906251085155,
+          "note": "跌 42.6% 触发 4x, 买 $120"
+        },
+        {
+          "date": "2022-11-11",
+          "type": "BUY",
+          "price": 14.83,
+          "usdtSpent": 30,
+          "solBought": 2.0229265003371544,
+          "dropPct": 7.428214731585515,
+          "mult": 1,
+          "cumulativeSol": 21.616832751422308,
+          "note": "跌 7.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-12",
+          "type": "BUY",
+          "price": 14.06,
+          "usdtSpent": 30,
+          "solBought": 2.1337126600284493,
+          "dropPct": 5.192178017532027,
+          "mult": 1,
+          "cumulativeSol": 23.75054541145076,
+          "note": "跌 5.2% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-18",
+          "type": "BUY",
+          "price": 12.73,
+          "usdtSpent": 30,
+          "solBought": 2.356637863315004,
+          "dropPct": 9.45945945945946,
+          "mult": 1,
+          "cumulativeSol": 26.107183274765763,
+          "note": "跌 9.5% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-20",
+          "type": "BUY",
+          "price": 11.92,
+          "usdtSpent": 30,
+          "solBought": 2.5167785234899327,
+          "dropPct": 6.362922230950514,
+          "mult": 1,
+          "cumulativeSol": 28.623961798255696,
+          "note": "跌 6.4% 触发 1x, 买 $30"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1629129600000,
+          "open": 67.08,
+          "high": 75.02,
+          "low": 61.3,
+          "close": 69.87,
+          "date": "2021-08-16"
+        },
+        "3m": {
+          "ts": 1634140800000,
+          "open": 146.3,
+          "high": 160.66,
+          "low": 144.44,
+          "close": 152.79,
+          "date": "2021-10-13"
+        },
+        "6m": {
+          "ts": 1641744000000,
+          "open": 140.11,
+          "high": 145.71,
+          "low": 130,
+          "close": 133.14,
+          "date": "2022-01-09"
+        }
+      },
+      "id": "low_2021_07_V4_wait10",
+      "window": {
+        "id": "low_2021_07",
+        "label": "2021-07 BTC 腰斩后（SOL ~$25）",
+        "start": "2021-07-20",
+        "evalDate": "2022-12-20"
+      },
+      "variant": {
+        "id": "V4_wait10",
+        "label": "保守（等跌 10% 首买 + 5% 触发）",
+        "firstBuy": "wait10",
+        "triggerPct": 5
+      }
+    },
+    {
+      "startPrice": 11.92,
+      "finalPrice": 87.47,
+      "buyCount": 4,
+      "totalSpent": 150,
+      "usdtRemaining": 6850,
+      "solHolding": 14.431255049818656,
+      "finalValue": 8112.301879207638,
+      "finalProfit": 1112.3018792076382,
+      "totalReturnPct": 15.890026845823401,
+      "maxDrawdown": -2.4095438890182055,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2022-11-20",
+          "type": "FIRST_BUY",
+          "price": 11.92,
+          "usdtSpent": 30,
+          "solBought": 2.5167785234899327,
+          "cumulativeSol": 2.5167785234899327,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2022-12-25",
+          "type": "BUY",
+          "price": 11.182,
+          "usdtSpent": 30,
+          "solBought": 2.6828832051511355,
+          "dropPct": 6.191275167785231,
+          "mult": 1,
+          "cumulativeSol": 5.199661728641068,
+          "note": "跌 6.2% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-12-27",
+          "type": "BUY",
+          "price": 9.942,
+          "usdtSpent": 60,
+          "solBought": 6.035003017501508,
+          "dropPct": 11.089250581291363,
+          "mult": 2,
+          "cumulativeSol": 11.234664746142577,
+          "note": "跌 11.1% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2022-12-28",
+          "type": "BUY",
+          "price": 9.385,
+          "usdtSpent": 30,
+          "solBought": 3.196590303676079,
+          "dropPct": 5.602494467913904,
+          "mult": 1,
+          "cumulativeSol": 14.431255049818656,
+          "note": "跌 5.6% 触发 1x, 买 $30"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1671292800000,
+          "open": 12.31,
+          "high": 12.54,
+          "low": 12.14,
+          "close": 12.46,
+          "date": "2022-12-17"
+        },
+        "3m": {
+          "ts": 1676304000000,
+          "open": 20.372,
+          "high": 22.375,
+          "low": 19.743,
+          "close": 21.898,
+          "date": "2023-02-13"
+        },
+        "6m": {
+          "ts": 1683907200000,
+          "open": 20.294,
+          "high": 21.293,
+          "low": 19.896,
+          "close": 20.872,
+          "date": "2023-05-12"
+        }
+      },
+      "id": "low_2022_11_V1_e5",
+      "window": {
+        "id": "low_2022_11",
+        "label": "2022-11 FTX 崩盘（SOL ~$13）",
+        "start": "2022-11-20",
+        "evalDate": "2023-12-20"
+      },
+      "variant": {
+        "id": "V1_e5",
+        "label": "E 基线（启动即首买 + 5% 触发）",
+        "firstBuy": "immediate",
+        "triggerPct": 5
+      }
+    },
+    {
+      "startPrice": 11.92,
+      "finalPrice": 87.47,
+      "buyCount": 5,
+      "totalSpent": 150,
+      "usdtRemaining": 6850,
+      "solHolding": 14.159560402157535,
+      "finalValue": 8088.5367483767195,
+      "finalProfit": 1088.5367483767195,
+      "totalReturnPct": 15.550524976810278,
+      "maxDrawdown": -2.3665400317261662,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2022-11-20",
+          "type": "FIRST_BUY",
+          "price": 11.92,
+          "usdtSpent": 30,
+          "solBought": 2.5167785234899327,
+          "cumulativeSol": 2.5167785234899327,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2022-12-23",
+          "type": "BUY",
+          "price": 11.36,
+          "usdtSpent": 30,
+          "solBought": 2.6408450704225355,
+          "dropPct": 4.697986577181212,
+          "mult": 1,
+          "cumulativeSol": 5.157623593912469,
+          "note": "跌 4.7% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-12-26",
+          "type": "BUY",
+          "price": 10.761,
+          "usdtSpent": 30,
+          "solBought": 2.7878449958182325,
+          "dropPct": 5.272887323943664,
+          "mult": 1,
+          "cumulativeSol": 7.945468589730702,
+          "note": "跌 5.3% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-12-27",
+          "type": "BUY",
+          "price": 9.942,
+          "usdtSpent": 30,
+          "solBought": 3.017501508750754,
+          "dropPct": 7.610816838583768,
+          "mult": 1,
+          "cumulativeSol": 10.962970098481456,
+          "note": "跌 7.6% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-12-28",
+          "type": "BUY",
+          "price": 9.385,
+          "usdtSpent": 30,
+          "solBought": 3.196590303676079,
+          "dropPct": 5.602494467913904,
+          "mult": 1,
+          "cumulativeSol": 14.159560402157535,
+          "note": "跌 5.6% 触发 1x, 买 $30"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1671292800000,
+          "open": 12.31,
+          "high": 12.54,
+          "low": 12.14,
+          "close": 12.46,
+          "date": "2022-12-17"
+        },
+        "3m": {
+          "ts": 1676304000000,
+          "open": 20.372,
+          "high": 22.375,
+          "low": 19.743,
+          "close": 21.898,
+          "date": "2023-02-13"
+        },
+        "6m": {
+          "ts": 1683907200000,
+          "open": 20.294,
+          "high": 21.293,
+          "low": 19.896,
+          "close": 20.872,
+          "date": "2023-05-12"
+        }
+      },
+      "id": "low_2022_11_V2_e2",
+      "window": {
+        "id": "low_2022_11",
+        "label": "2022-11 FTX 崩盘（SOL ~$13）",
+        "start": "2022-11-20",
+        "evalDate": "2023-12-20"
+      },
+      "variant": {
+        "id": "V2_e2",
+        "label": "激进（启动即首买 + 2% 触发）",
+        "firstBuy": "immediate",
+        "triggerPct": 2
+      }
+    },
+    {
+      "startPrice": 11.92,
+      "finalPrice": 87.47,
+      "buyCount": 5,
+      "totalSpent": 150,
+      "usdtRemaining": 6850,
+      "solHolding": 14.159560402157535,
+      "finalValue": 8088.5367483767195,
+      "finalProfit": 1088.5367483767195,
+      "totalReturnPct": 15.550524976810278,
+      "maxDrawdown": -2.3665400317261662,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2022-11-20",
+          "type": "FIRST_BUY",
+          "price": 11.92,
+          "usdtSpent": 30,
+          "solBought": 2.5167785234899327,
+          "cumulativeSol": 2.5167785234899327,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2022-12-23",
+          "type": "BUY",
+          "price": 11.36,
+          "usdtSpent": 30,
+          "solBought": 2.6408450704225355,
+          "dropPct": 4.697986577181212,
+          "mult": 1,
+          "cumulativeSol": 5.157623593912469,
+          "note": "跌 4.7% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-12-26",
+          "type": "BUY",
+          "price": 10.761,
+          "usdtSpent": 30,
+          "solBought": 2.7878449958182325,
+          "dropPct": 5.272887323943664,
+          "mult": 1,
+          "cumulativeSol": 7.945468589730702,
+          "note": "跌 5.3% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-12-27",
+          "type": "BUY",
+          "price": 9.942,
+          "usdtSpent": 30,
+          "solBought": 3.017501508750754,
+          "dropPct": 7.610816838583768,
+          "mult": 1,
+          "cumulativeSol": 10.962970098481456,
+          "note": "跌 7.6% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-12-28",
+          "type": "BUY",
+          "price": 9.385,
+          "usdtSpent": 30,
+          "solBought": 3.196590303676079,
+          "dropPct": 5.602494467913904,
+          "mult": 1,
+          "cumulativeSol": 14.159560402157535,
+          "note": "跌 5.6% 触发 1x, 买 $30"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1671292800000,
+          "open": 12.31,
+          "high": 12.54,
+          "low": 12.14,
+          "close": 12.46,
+          "date": "2022-12-17"
+        },
+        "3m": {
+          "ts": 1676304000000,
+          "open": 20.372,
+          "high": 22.375,
+          "low": 19.743,
+          "close": 21.898,
+          "date": "2023-02-13"
+        },
+        "6m": {
+          "ts": 1683907200000,
+          "open": 20.294,
+          "high": 21.293,
+          "low": 19.896,
+          "close": 20.872,
+          "date": "2023-05-12"
+        }
+      },
+      "id": "low_2022_11_V3_e3",
+      "window": {
+        "id": "low_2022_11",
+        "label": "2022-11 FTX 崩盘（SOL ~$13）",
+        "start": "2022-11-20",
+        "evalDate": "2023-12-20"
+      },
+      "variant": {
+        "id": "V3_e3",
+        "label": "中等（启动即首买 + 3% 触发）",
+        "firstBuy": "immediate",
+        "triggerPct": 3
+      }
+    },
+    {
+      "startPrice": 11.92,
+      "finalPrice": 87.47,
+      "buyCount": 2,
+      "totalSpent": 120,
+      "usdtRemaining": 6880,
+      "solHolding": 7.651778157350915,
+      "finalValue": 7549.301035423485,
+      "finalProfit": 549.3010354234848,
+      "totalReturnPct": 7.847157648906926,
+      "maxDrawdown": -1.1139791422011827,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2023-03-14",
+          "type": "FIRST_BUY",
+          "price": 19.241,
+          "usdtSpent": 30,
+          "solBought": 1.5591705212826776,
+          "cumulativeSol": 1.5591705212826776,
+          "note": "等跌 10% 首买 (从 $11.92 跌到 $19.24)"
+        },
+        {
+          "date": "2023-06-09",
+          "type": "BUY",
+          "price": 14.772,
+          "usdtSpent": 90,
+          "solBought": 6.092607636068237,
+          "dropPct": 23.226443532040953,
+          "mult": 3,
+          "cumulativeSol": 7.651778157350915,
+          "note": "跌 23.2% 触发 3x, 买 $90"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1671292800000,
+          "open": 12.31,
+          "high": 12.54,
+          "low": 12.14,
+          "close": 12.46,
+          "date": "2022-12-17"
+        },
+        "3m": {
+          "ts": 1676304000000,
+          "open": 20.372,
+          "high": 22.375,
+          "low": 19.743,
+          "close": 21.898,
+          "date": "2023-02-13"
+        },
+        "6m": {
+          "ts": 1683907200000,
+          "open": 20.294,
+          "high": 21.293,
+          "low": 19.896,
+          "close": 20.872,
+          "date": "2023-05-12"
+        }
+      },
+      "id": "low_2022_11_V4_wait10",
+      "window": {
+        "id": "low_2022_11",
+        "label": "2022-11 FTX 崩盘（SOL ~$13）",
+        "start": "2022-11-20",
+        "evalDate": "2023-12-20"
+      },
+      "variant": {
+        "id": "V4_wait10",
+        "label": "保守（等跌 10% 首买 + 5% 触发）",
+        "firstBuy": "wait10",
+        "triggerPct": 5
+      }
+    },
+    {
+      "startPrice": 29.035,
+      "finalPrice": 186.7,
+      "buyCount": 1,
+      "totalSpent": 30,
+      "usdtRemaining": 6970,
+      "solHolding": 1.0332357499569484,
+      "finalValue": 7162.905114516962,
+      "finalProfit": 162.90511451696239,
+      "totalReturnPct": 2.327215921670891,
+      "maxDrawdown": -1.1571891804778232,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2023-10-20",
+          "type": "FIRST_BUY",
+          "price": 29.035,
+          "usdtSpent": 30,
+          "solBought": 1.0332357499569484,
+          "cumulativeSol": 1.0332357499569484,
+          "note": "启动即首买"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1700150400000,
+          "open": 61.61,
+          "high": 62.88,
+          "low": 54,
+          "close": 55.04,
+          "date": "2023-11-16"
+        },
+        "3m": {
+          "ts": 1705161600000,
+          "open": 92.94,
+          "high": 99.78,
+          "low": 91.57,
+          "close": 99.53,
+          "date": "2024-01-13"
+        },
+        "6m": {
+          "ts": 1712764800000,
+          "open": 167.89,
+          "high": 175.99,
+          "low": 166.93,
+          "close": 173.42,
+          "date": "2024-04-10"
+        }
+      },
+      "id": "low_2023_10_V1_e5",
+      "window": {
+        "id": "low_2023_10",
+        "label": "2023-10 熊末（SOL ~$20）",
+        "start": "2023-10-20",
+        "evalDate": "2024-12-20"
+      },
+      "variant": {
+        "id": "V1_e5",
+        "label": "E 基线（启动即首买 + 5% 触发）",
+        "firstBuy": "immediate",
+        "triggerPct": 5
+      }
+    },
+    {
+      "startPrice": 29.035,
+      "finalPrice": 186.7,
+      "buyCount": 2,
+      "totalSpent": 60,
+      "usdtRemaining": 6940,
+      "solHolding": 2.088681851842679,
+      "finalValue": 7329.956901739028,
+      "finalProfit": 329.95690173902767,
+      "totalReturnPct": 4.713670024843252,
+      "maxDrawdown": -2.2804675999525426,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2023-10-20",
+          "type": "FIRST_BUY",
+          "price": 29.035,
+          "usdtSpent": 30,
+          "solBought": 1.0332357499569484,
+          "cumulativeSol": 1.0332357499569484,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2023-10-21",
+          "type": "BUY",
+          "price": 28.424,
+          "usdtSpent": 30,
+          "solBought": 1.0554461018857304,
+          "dropPct": 2.104356810745654,
+          "mult": 1,
+          "cumulativeSol": 2.088681851842679,
+          "note": "跌 2.1% 触发 1x, 买 $30"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1700150400000,
+          "open": 61.61,
+          "high": 62.88,
+          "low": 54,
+          "close": 55.04,
+          "date": "2023-11-16"
+        },
+        "3m": {
+          "ts": 1705161600000,
+          "open": 92.94,
+          "high": 99.78,
+          "low": 91.57,
+          "close": 99.53,
+          "date": "2024-01-13"
+        },
+        "6m": {
+          "ts": 1712764800000,
+          "open": 167.89,
+          "high": 175.99,
+          "low": 166.93,
+          "close": 173.42,
+          "date": "2024-04-10"
+        }
+      },
+      "id": "low_2023_10_V2_e2",
+      "window": {
+        "id": "low_2023_10",
+        "label": "2023-10 熊末（SOL ~$20）",
+        "start": "2023-10-20",
+        "evalDate": "2024-12-20"
+      },
+      "variant": {
+        "id": "V2_e2",
+        "label": "激进（启动即首买 + 2% 触发）",
+        "firstBuy": "immediate",
+        "triggerPct": 2
+      }
+    },
+    {
+      "startPrice": 29.035,
+      "finalPrice": 186.7,
+      "buyCount": 1,
+      "totalSpent": 30,
+      "usdtRemaining": 6970,
+      "solHolding": 1.0332357499569484,
+      "finalValue": 7162.905114516962,
+      "finalProfit": 162.90511451696239,
+      "totalReturnPct": 2.327215921670891,
+      "maxDrawdown": -1.1571891804778232,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2023-10-20",
+          "type": "FIRST_BUY",
+          "price": 29.035,
+          "usdtSpent": 30,
+          "solBought": 1.0332357499569484,
+          "cumulativeSol": 1.0332357499569484,
+          "note": "启动即首买"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1700150400000,
+          "open": 61.61,
+          "high": 62.88,
+          "low": 54,
+          "close": 55.04,
+          "date": "2023-11-16"
+        },
+        "3m": {
+          "ts": 1705161600000,
+          "open": 92.94,
+          "high": 99.78,
+          "low": 91.57,
+          "close": 99.53,
+          "date": "2024-01-13"
+        },
+        "6m": {
+          "ts": 1712764800000,
+          "open": 167.89,
+          "high": 175.99,
+          "low": 166.93,
+          "close": 173.42,
+          "date": "2024-04-10"
+        }
+      },
+      "id": "low_2023_10_V3_e3",
+      "window": {
+        "id": "low_2023_10",
+        "label": "2023-10 熊末（SOL ~$20）",
+        "start": "2023-10-20",
+        "evalDate": "2024-12-20"
+      },
+      "variant": {
+        "id": "V3_e3",
+        "label": "中等（启动即首买 + 3% 触发）",
+        "firstBuy": "immediate",
+        "triggerPct": 3
+      }
+    },
+    {
+      "startPrice": 29.035,
+      "finalPrice": 186.7,
+      "buyCount": 1,
+      "totalSpent": 30,
+      "usdtRemaining": 6970,
+      "solHolding": 0.5450581395348837,
+      "finalValue": 7071.762354651163,
+      "finalProfit": 71.76235465116315,
+      "totalReturnPct": 1.0251764950166165,
+      "maxDrawdown": -0.6190236227583894,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2023-11-16",
+          "type": "FIRST_BUY",
+          "price": 55.04,
+          "usdtSpent": 30,
+          "solBought": 0.5450581395348837,
+          "cumulativeSol": 0.5450581395348837,
+          "note": "等跌 10% 首买 (从 $29.04 跌到 $55.04)"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1700150400000,
+          "open": 61.61,
+          "high": 62.88,
+          "low": 54,
+          "close": 55.04,
+          "date": "2023-11-16"
+        },
+        "3m": {
+          "ts": 1705161600000,
+          "open": 92.94,
+          "high": 99.78,
+          "low": 91.57,
+          "close": 99.53,
+          "date": "2024-01-13"
+        },
+        "6m": {
+          "ts": 1712764800000,
+          "open": 167.89,
+          "high": 175.99,
+          "low": 166.93,
+          "close": 173.42,
+          "date": "2024-04-10"
+        }
+      },
+      "id": "low_2023_10_V4_wait10",
+      "window": {
+        "id": "low_2023_10",
+        "label": "2023-10 熊末（SOL ~$20）",
+        "start": "2023-10-20",
+        "evalDate": "2024-12-20"
+      },
+      "variant": {
+        "id": "V4_wait10",
+        "label": "保守（等跌 10% 首买 + 5% 触发）",
+        "firstBuy": "wait10",
+        "triggerPct": 5
+      }
+    },
+    {
+      "startPrice": 140.37,
+      "finalPrice": 181.63,
+      "buyCount": 5,
+      "totalSpent": 150,
+      "usdtRemaining": 6850,
+      "solHolding": 1.2287609593245443,
+      "finalValue": 7073.1798530421165,
+      "finalProfit": 73.17985304211652,
+      "totalReturnPct": 1.045426472030236,
+      "maxDrawdown": -1.1021158839769931,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2024-08-20",
+          "type": "FIRST_BUY",
+          "price": 140.37,
+          "usdtSpent": 30,
+          "solBought": 0.21372088053002777,
+          "cumulativeSol": 0.21372088053002777,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2024-08-29",
+          "type": "BUY",
+          "price": 133.31,
+          "usdtSpent": 30,
+          "solBought": 0.22503938189183106,
+          "dropPct": 5.029564721806655,
+          "mult": 1,
+          "cumulativeSol": 0.43876026242185884,
+          "note": "跌 5.0% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-03-09",
+          "type": "BUY",
+          "price": 121.93,
+          "usdtSpent": 30,
+          "solBought": 0.24604281144919216,
+          "dropPct": 8.536493886430122,
+          "mult": 1,
+          "cumulativeSol": 0.684803073871051,
+          "note": "跌 8.5% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-04-02",
+          "type": "BUY",
+          "price": 114.18,
+          "usdtSpent": 30,
+          "solBought": 0.26274303730951126,
+          "dropPct": 6.356105962437464,
+          "mult": 1,
+          "cumulativeSol": 0.9475461111805623,
+          "note": "跌 6.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-04-06",
+          "type": "BUY",
+          "price": 106.68,
+          "usdtSpent": 30,
+          "solBought": 0.281214848143982,
+          "dropPct": 6.568575932737781,
+          "mult": 1,
+          "cumulativeSol": 1.2287609593245443,
+          "note": "跌 6.6% 触发 1x, 买 $30"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1726502400000,
+          "open": 131.47,
+          "high": 135.56,
+          "low": 128.94,
+          "close": 134.65,
+          "date": "2024-09-16"
+        },
+        "3m": {
+          "ts": 1731513600000,
+          "open": 216.4,
+          "high": 222.82,
+          "low": 205.96,
+          "close": 210.86,
+          "date": "2024-11-13"
+        },
+        "6m": {
+          "ts": 1739116800000,
+          "open": 200.67,
+          "high": 209.11,
+          "low": 193.53,
+          "close": 203.09,
+          "date": "2025-02-09"
+        }
+      },
+      "id": "low_2024_08_V1_e5",
+      "window": {
+        "id": "low_2024_08",
+        "label": "2024-08 中段（SOL ~$140）",
+        "start": "2024-08-20",
+        "evalDate": "2025-08-20"
+      },
+      "variant": {
+        "id": "V1_e5",
+        "label": "E 基线（启动即首买 + 5% 触发）",
+        "firstBuy": "immediate",
+        "triggerPct": 5
+      }
+    },
+    {
+      "startPrice": 140.37,
+      "finalPrice": 181.63,
+      "buyCount": 7,
+      "totalSpent": 210,
+      "usdtRemaining": 6790,
+      "solHolding": 1.6965543523992654,
+      "finalValue": 7098.145167026279,
+      "finalProfit": 98.14516702627861,
+      "totalReturnPct": 1.402073814661123,
+      "maxDrawdown": -2.1687160406405517,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2024-08-20",
+          "type": "FIRST_BUY",
+          "price": 140.37,
+          "usdtSpent": 30,
+          "solBought": 0.21372088053002777,
+          "cumulativeSol": 0.21372088053002777,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2024-08-29",
+          "type": "BUY",
+          "price": 133.31,
+          "usdtSpent": 30,
+          "solBought": 0.22503938189183106,
+          "dropPct": 5.029564721806655,
+          "mult": 1,
+          "cumulativeSol": 0.43876026242185884,
+          "note": "跌 5.0% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2024-09-02",
+          "type": "BUY",
+          "price": 129.81,
+          "usdtSpent": 30,
+          "solBought": 0.23110700254217703,
+          "dropPct": 2.6254594554046955,
+          "mult": 1,
+          "cumulativeSol": 0.6698672649640358,
+          "note": "跌 2.6% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2024-09-07",
+          "type": "BUY",
+          "price": 126.75,
+          "usdtSpent": 30,
+          "solBought": 0.23668639053254437,
+          "dropPct": 2.357291425930207,
+          "mult": 1,
+          "cumulativeSol": 0.9065536554965802,
+          "note": "跌 2.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-03-09",
+          "type": "BUY",
+          "price": 121.93,
+          "usdtSpent": 30,
+          "solBought": 0.24604281144919216,
+          "dropPct": 3.8027613412228747,
+          "mult": 1,
+          "cumulativeSol": 1.1525964669457722,
+          "note": "跌 3.8% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-04-02",
+          "type": "BUY",
+          "price": 114.18,
+          "usdtSpent": 30,
+          "solBought": 0.26274303730951126,
+          "dropPct": 6.356105962437464,
+          "mult": 1,
+          "cumulativeSol": 1.4153395042552834,
+          "note": "跌 6.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-04-06",
+          "type": "BUY",
+          "price": 106.68,
+          "usdtSpent": 30,
+          "solBought": 0.281214848143982,
+          "dropPct": 6.568575932737781,
+          "mult": 1,
+          "cumulativeSol": 1.6965543523992654,
+          "note": "跌 6.6% 触发 1x, 买 $30"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1726502400000,
+          "open": 131.47,
+          "high": 135.56,
+          "low": 128.94,
+          "close": 134.65,
+          "date": "2024-09-16"
+        },
+        "3m": {
+          "ts": 1731513600000,
+          "open": 216.4,
+          "high": 222.82,
+          "low": 205.96,
+          "close": 210.86,
+          "date": "2024-11-13"
+        },
+        "6m": {
+          "ts": 1739116800000,
+          "open": 200.67,
+          "high": 209.11,
+          "low": 193.53,
+          "close": 203.09,
+          "date": "2025-02-09"
+        }
+      },
+      "id": "low_2024_08_V2_e2",
+      "window": {
+        "id": "low_2024_08",
+        "label": "2024-08 中段（SOL ~$140）",
+        "start": "2024-08-20",
+        "evalDate": "2025-08-20"
+      },
+      "variant": {
+        "id": "V2_e2",
+        "label": "激进（启动即首买 + 2% 触发）",
+        "firstBuy": "immediate",
+        "triggerPct": 2
+      }
+    },
+    {
+      "startPrice": 140.37,
+      "finalPrice": 181.63,
+      "buyCount": 6,
+      "totalSpent": 180,
+      "usdtRemaining": 6820,
+      "solHolding": 1.4629895664450938,
+      "finalValue": 7085.722794953423,
+      "finalProfit": 85.72279495342264,
+      "totalReturnPct": 1.2246113564774663,
+      "maxDrawdown": -1.6386660339809067,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2024-08-20",
+          "type": "FIRST_BUY",
+          "price": 140.37,
+          "usdtSpent": 30,
+          "solBought": 0.21372088053002777,
+          "cumulativeSol": 0.21372088053002777,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2024-08-29",
+          "type": "BUY",
+          "price": 133.31,
+          "usdtSpent": 30,
+          "solBought": 0.22503938189183106,
+          "dropPct": 5.029564721806655,
+          "mult": 1,
+          "cumulativeSol": 0.43876026242185884,
+          "note": "跌 5.0% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2024-09-05",
+          "type": "BUY",
+          "price": 128.08,
+          "usdtSpent": 30,
+          "solBought": 0.23422860712054963,
+          "dropPct": 3.923186557647581,
+          "mult": 1,
+          "cumulativeSol": 0.6729888695424084,
+          "note": "跌 3.9% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-03-09",
+          "type": "BUY",
+          "price": 121.93,
+          "usdtSpent": 30,
+          "solBought": 0.24604281144919216,
+          "dropPct": 4.801686445971272,
+          "mult": 1,
+          "cumulativeSol": 0.9190316809916006,
+          "note": "跌 4.8% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-04-02",
+          "type": "BUY",
+          "price": 114.18,
+          "usdtSpent": 30,
+          "solBought": 0.26274303730951126,
+          "dropPct": 6.356105962437464,
+          "mult": 1,
+          "cumulativeSol": 1.1817747183011118,
+          "note": "跌 6.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-04-06",
+          "type": "BUY",
+          "price": 106.68,
+          "usdtSpent": 30,
+          "solBought": 0.281214848143982,
+          "dropPct": 6.568575932737781,
+          "mult": 1,
+          "cumulativeSol": 1.4629895664450938,
+          "note": "跌 6.6% 触发 1x, 买 $30"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1726502400000,
+          "open": 131.47,
+          "high": 135.56,
+          "low": 128.94,
+          "close": 134.65,
+          "date": "2024-09-16"
+        },
+        "3m": {
+          "ts": 1731513600000,
+          "open": 216.4,
+          "high": 222.82,
+          "low": 205.96,
+          "close": 210.86,
+          "date": "2024-11-13"
+        },
+        "6m": {
+          "ts": 1739116800000,
+          "open": 200.67,
+          "high": 209.11,
+          "low": 193.53,
+          "close": 203.09,
+          "date": "2025-02-09"
+        }
+      },
+      "id": "low_2024_08_V3_e3",
+      "window": {
+        "id": "low_2024_08",
+        "label": "2024-08 中段（SOL ~$140）",
+        "start": "2024-08-20",
+        "evalDate": "2025-08-20"
+      },
+      "variant": {
+        "id": "V3_e3",
+        "label": "中等（启动即首买 + 3% 触发）",
+        "firstBuy": "immediate",
+        "triggerPct": 3
+      }
+    },
+    {
+      "startPrice": 140.37,
+      "finalPrice": 181.63,
+      "buyCount": 5,
+      "totalSpent": 150,
+      "usdtRemaining": 6850,
+      "solHolding": 1.2369187630878637,
+      "finalValue": 7074.661554939648,
+      "finalProfit": 74.66155493964834,
+      "totalReturnPct": 1.0665936419949764,
+      "maxDrawdown": -0.9114095511889726,
+      "firstBuyDone": true,
+      "events": [
+        {
+          "date": "2025-03-03",
+          "type": "FIRST_BUY",
+          "price": 138.6,
+          "usdtSpent": 30,
+          "solBought": 0.21645021645021645,
+          "cumulativeSol": 0.21645021645021645,
+          "note": "等跌 10% 首买 (从 $140.37 跌到 $138.60)"
+        },
+        {
+          "date": "2025-03-08",
+          "type": "BUY",
+          "price": 130.17,
+          "usdtSpent": 30,
+          "solBought": 0.23046784973496198,
+          "dropPct": 6.082251082251087,
+          "mult": 1,
+          "cumulativeSol": 0.44691806618517843,
+          "note": "跌 6.1% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-03-09",
+          "type": "BUY",
+          "price": 121.93,
+          "usdtSpent": 30,
+          "solBought": 0.24604281144919216,
+          "dropPct": 6.330183606053607,
+          "mult": 1,
+          "cumulativeSol": 0.6929608776343705,
+          "note": "跌 6.3% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-04-02",
+          "type": "BUY",
+          "price": 114.18,
+          "usdtSpent": 30,
+          "solBought": 0.26274303730951126,
+          "dropPct": 6.356105962437464,
+          "mult": 1,
+          "cumulativeSol": 0.9557039149438817,
+          "note": "跌 6.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-04-06",
+          "type": "BUY",
+          "price": 106.68,
+          "usdtSpent": 30,
+          "solBought": 0.281214848143982,
+          "dropPct": 6.568575932737781,
+          "mult": 1,
+          "cumulativeSol": 1.2369187630878637,
+          "note": "跌 6.6% 触发 1x, 买 $30"
+        }
+      ],
+      "snapshots": {
+        "1m": {
+          "ts": 1726502400000,
+          "open": 131.47,
+          "high": 135.56,
+          "low": 128.94,
+          "close": 134.65,
+          "date": "2024-09-16"
+        },
+        "3m": {
+          "ts": 1731513600000,
+          "open": 216.4,
+          "high": 222.82,
+          "low": 205.96,
+          "close": 210.86,
+          "date": "2024-11-13"
+        },
+        "6m": {
+          "ts": 1739116800000,
+          "open": 200.67,
+          "high": 209.11,
+          "low": 193.53,
+          "close": 203.09,
+          "date": "2025-02-09"
+        }
+      },
+      "id": "low_2024_08_V4_wait10",
+      "window": {
+        "id": "low_2024_08",
+        "label": "2024-08 中段（SOL ~$140）",
+        "start": "2024-08-20",
+        "evalDate": "2025-08-20"
+      },
+      "variant": {
+        "id": "V4_wait10",
+        "label": "保守（等跌 10% 首买 + 5% 触发）",
+        "firstBuy": "wait10",
+        "triggerPct": 5
+      }
+    }
+  ]
+}

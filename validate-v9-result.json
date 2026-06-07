@@ -1,0 +1,119 @@
+{
+  "generatedAt": "2026-06-07T00:30:49.676Z",
+  "runSeconds": 60,
+  "pushCount": 194,
+  "pushFreqHz": 3.2333333333333334,
+  "avgDelayMs": -1209.3092783505156,
+  "medianDelayMs": -1251,
+  "minDelayMs": -1328,
+  "maxDelayMs": -42,
+  "avgIntervalMs": 309.86528497409324,
+  "minPrice": 62.25,
+  "maxPrice": 62.34,
+  "lastPrice": 62.33,
+  "firstPrice": 62.25,
+  "firstSample": [
+    {
+      "time": 1780792189775,
+      "elapsedSec": 0.1,
+      "okxTs": 1780792191008,
+      "localDelayMs": -1233,
+      "lastPrice": 62.25,
+      "bid": 62.24,
+      "ask": 62.25,
+      "vol24h": 1025391.251515
+    },
+    {
+      "time": 1780792189820,
+      "elapsedSec": 0.2,
+      "okxTs": 1780792191110,
+      "localDelayMs": -1290,
+      "lastPrice": 62.25,
+      "bid": 62.24,
+      "ask": 62.25,
+      "vol24h": 1025391.251515
+    },
+    {
+      "time": 1780792189934,
+      "elapsedSec": 0.3,
+      "okxTs": 1780792191210,
+      "localDelayMs": -1276,
+      "lastPrice": 62.25,
+      "bid": 62.24,
+      "ask": 62.25,
+      "vol24h": 1025391.251515
+    },
+    {
+      "time": 1780792190039,
+      "elapsedSec": 0.4,
+      "okxTs": 1780792191311,
+      "localDelayMs": -1272,
+      "lastPrice": 62.25,
+      "bid": 62.24,
+      "ask": 62.25,
+      "vol24h": 1025391.251515
+    },
+    {
+      "time": 1780792190152,
+      "elapsedSec": 0.5,
+      "okxTs": 1780792191419,
+      "localDelayMs": -1267,
+      "lastPrice": 62.25,
+      "bid": 62.25,
+      "ask": 62.26,
+      "vol24h": 1025391.251515
+    }
+  ],
+  "lastSample": [
+    {
+      "time": 1780792249008,
+      "elapsedSec": 59.4,
+      "okxTs": 1780792250279,
+      "localDelayMs": -1271,
+      "lastPrice": 62.33,
+      "bid": 62.32,
+      "ask": 62.33,
+      "vol24h": 1025225.699288
+    },
+    {
+      "time": 1780792249124,
+      "elapsedSec": 59.5,
+      "okxTs": 1780792250405,
+      "localDelayMs": -1281,
+      "lastPrice": 62.33,
+      "bid": 62.33,
+      "ask": 62.34,
+      "vol24h": 1025225.699288
+    },
+    {
+      "time": 1780792249218,
+      "elapsedSec": 59.6,
+      "okxTs": 1780792250506,
+      "localDelayMs": -1288,
+      "lastPrice": 62.33,
+      "bid": 62.33,
+      "ask": 62.34,
+      "vol24h": 1025225.699288
+    },
+    {
+      "time": 1780792249434,
+      "elapsedSec": 59.8,
+      "okxTs": 1780792250708,
+      "localDelayMs": -1274,
+      "lastPrice": 62.33,
+      "bid": 62.33,
+      "ask": 62.34,
+      "vol24h": 1025225.699288
+    },
+    {
+      "time": 1780792249579,
+      "elapsedSec": 59.9,
+      "okxTs": 1780792250862,
+      "localDelayMs": -1283,
+      "lastPrice": 62.33,
+      "bid": 62.33,
+      "ask": 62.34,
+      "vol24h": 1025225.699288
+    }
+  ]
+}

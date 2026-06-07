@@ -1,0 +1,694 @@
+{
+  "generatedAt": "2026-06-06T15:43:11.385Z",
+  "scenarios": [
+    {
+      "id": "s_2025_04",
+      "label": "2025-04-30 高位 $150 跌到当前 $62（最近 6 周暴跌 59%）",
+      "start": "2025-04-30",
+      "evalDate": "2026-04-30",
+      "note": "最接近当前场景，6 周内跌 59%"
+    },
+    {
+      "id": "s_2021_11",
+      "label": "2021-11-30 高位 $200 跌到熊底（2022 熊市持续 1 年）",
+      "start": "2021-11-30",
+      "evalDate": "2022-12-31",
+      "note": "2022 熊市 1 年，SOL 从 $200 跌到 $8 跌 95%"
+    },
+    {
+      "id": "s_2022_05",
+      "label": "2022-05-31 高位 $100 跌到 FTX 崩盘底 $8（跌 92%）",
+      "start": "2022-05-31",
+      "evalDate": "2023-05-31",
+      "note": "FTX 崩盘前高位入场"
+    }
+  ],
+  "results": [
+    {
+      "startPrice": 151.81,
+      "finalPrice": 84.46,
+      "buyCount": 14,
+      "totalSpent": 600,
+      "usdtRemaining": 6400,
+      "solHolding": 5.666270254692292,
+      "finalValue": 6878.5731857113105,
+      "finalProfit": -121.42681428868946,
+      "totalReturnPct": -1.7346687755527064,
+      "maxDrawdown": -2.315056743069038,
+      "s1mPnl": 405.6496448027883,
+      "events": [
+        {
+          "date": "2025-04-30",
+          "type": "FIRST_BUY",
+          "price": 151.81,
+          "usdtSpent": 30,
+          "solBought": 0.1976154403530729,
+          "cumulativeSol": 0.1976154403530729,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2025-05-02",
+          "type": "BUY",
+          "price": 148.44,
+          "usdtSpent": 30,
+          "solBought": 0.2021018593371059,
+          "dropPct": 2.219880113299522,
+          "mult": 1,
+          "note": "跌 2.2% 1x 买 $30"
+        },
+        {
+          "date": "2025-05-04",
+          "type": "BUY",
+          "price": 143.77,
+          "usdtSpent": 30,
+          "solBought": 0.2086666202963066,
+          "dropPct": 3.1460522770142734,
+          "mult": 1,
+          "note": "跌 3.1% 1x 买 $30"
+        },
+        {
+          "date": "2025-06-20",
+          "type": "BUY",
+          "price": 140.31,
+          "usdtSpent": 30,
+          "solBought": 0.2138122728244601,
+          "dropPct": 2.4066216874174082,
+          "mult": 1,
+          "note": "跌 2.4% 1x 买 $30"
+        },
+        {
+          "date": "2025-06-21",
+          "type": "BUY",
+          "price": 128.54,
+          "usdtSpent": 60,
+          "solBought": 0.46678076863233237,
+          "dropPct": 8.38856817047966,
+          "mult": 2,
+          "note": "跌 8.4% 2x 买 $60"
+        },
+        {
+          "date": "2025-11-20",
+          "type": "BUY",
+          "price": 125.41,
+          "usdtSpent": 30,
+          "solBought": 0.23921537357467507,
+          "dropPct": 2.4350396763653306,
+          "mult": 1,
+          "note": "跌 2.4% 1x 买 $30"
+        },
+        {
+          "date": "2025-12-23",
+          "type": "BUY",
+          "price": 122.75,
+          "usdtSpent": 30,
+          "solBought": 0.24439918533604887,
+          "dropPct": 2.1210429790287826,
+          "mult": 1,
+          "note": "跌 2.1% 1x 买 $30"
+        },
+        {
+          "date": "2026-01-28",
+          "type": "BUY",
+          "price": 117.7,
+          "usdtSpent": 30,
+          "solBought": 0.2548853016142736,
+          "dropPct": 4.114052953156821,
+          "mult": 1,
+          "note": "跌 4.1% 1x 买 $30"
+        },
+        {
+          "date": "2026-01-30",
+          "type": "BUY",
+          "price": 108.67,
+          "usdtSpent": 60,
+          "solBought": 0.5521303027514494,
+          "dropPct": 7.672047578589636,
+          "mult": 2,
+          "note": "跌 7.7% 2x 买 $60"
+        },
+        {
+          "date": "2026-01-31",
+          "type": "BUY",
+          "price": 101.69,
+          "usdtSpent": 60,
+          "solBought": 0.5900285180450389,
+          "dropPct": 6.423115855341864,
+          "mult": 2,
+          "note": "跌 6.4% 2x 买 $60"
+        },
+        {
+          "date": "2026-02-03",
+          "type": "BUY",
+          "price": 92.79,
+          "usdtSpent": 60,
+          "solBought": 0.6466214031684449,
+          "dropPct": 8.752089684334734,
+          "mult": 2,
+          "note": "跌 8.8% 2x 买 $60"
+        },
+        {
+          "date": "2026-02-04",
+          "type": "BUY",
+          "price": 84.61,
+          "usdtSpent": 60,
+          "solBought": 0.7091360359295592,
+          "dropPct": 8.815605129863139,
+          "mult": 2,
+          "note": "跌 8.8% 2x 买 $60"
+        },
+        {
+          "date": "2026-02-10",
+          "type": "BUY",
+          "price": 79.71,
+          "usdtSpent": 60,
+          "solBought": 0.7527286413248024,
+          "dropPct": 5.791277626758074,
+          "mult": 2,
+          "note": "跌 5.8% 2x 买 $60"
+        },
+        {
+          "date": "2026-02-23",
+          "type": "BUY",
+          "price": 77.29,
+          "usdtSpent": 30,
+          "solBought": 0.38814853150472245,
+          "dropPct": 3.0360055200100207,
+          "mult": 1,
+          "note": "跌 3.0% 1x 买 $30"
+        }
+      ],
+      "scenario": {
+        "id": "s_2025_04",
+        "label": "2025-04-30 高位 $150 跌到当前 $62（最近 6 周暴跌 59%）",
+        "start": "2025-04-30",
+        "evalDate": "2026-04-30",
+        "note": "最接近当前场景，6 周内跌 59%"
+      },
+      "id": "s_2025_04"
+    },
+    {
+      "startPrice": 229.51,
+      "finalPrice": 9.861,
+      "buyCount": 35,
+      "totalSpent": 2040,
+      "usdtRemaining": 4960,
+      "solHolding": 71.40400787992068,
+      "finalValue": 5664.114921703898,
+      "finalProfit": -1335.8850782961017,
+      "totalReturnPct": -19.084072547087167,
+      "maxDrawdown": -19.569619800670637,
+      "s1mPnl": 12110.132241563879,
+      "events": [
+        {
+          "date": "2021-11-30",
+          "type": "FIRST_BUY",
+          "price": 229.51,
+          "usdtSpent": 30,
+          "solBought": 0.13071325868153894,
+          "cumulativeSol": 0.13071325868153894,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2021-12-02",
+          "type": "BUY",
+          "price": 224.33,
+          "usdtSpent": 30,
+          "solBought": 0.1337315561895422,
+          "dropPct": 2.2569822665678965,
+          "mult": 1,
+          "note": "跌 2.3% 1x 买 $30"
+        },
+        {
+          "date": "2021-12-03",
+          "type": "BUY",
+          "price": 204.99,
+          "usdtSpent": 60,
+          "solBought": 0.2926972047416947,
+          "dropPct": 8.621227655685821,
+          "mult": 2,
+          "note": "跌 8.6% 2x 买 $60"
+        },
+        {
+          "date": "2021-12-04",
+          "type": "BUY",
+          "price": 185.37,
+          "usdtSpent": 60,
+          "solBought": 0.3236769703835572,
+          "dropPct": 9.571198595053419,
+          "mult": 2,
+          "note": "跌 9.6% 2x 买 $60"
+        },
+        {
+          "date": "2021-12-09",
+          "type": "BUY",
+          "price": 173.67,
+          "usdtSpent": 60,
+          "solBought": 0.3454828122300916,
+          "dropPct": 6.311700922479374,
+          "mult": 2,
+          "note": "跌 6.3% 2x 买 $60"
+        },
+        {
+          "date": "2021-12-12",
+          "type": "BUY",
+          "price": 158.18,
+          "usdtSpent": 60,
+          "solBought": 0.37931470476672147,
+          "dropPct": 8.919214602406852,
+          "mult": 2,
+          "note": "跌 8.9% 2x 买 $60"
+        },
+        {
+          "date": "2022-01-05",
+          "type": "BUY",
+          "price": 149.65,
+          "usdtSpent": 60,
+          "solBought": 0.4009355162044771,
+          "dropPct": 5.392590719433557,
+          "mult": 2,
+          "note": "跌 5.4% 2x 买 $60"
+        },
+        {
+          "date": "2022-01-06",
+          "type": "BUY",
+          "price": 135.99,
+          "usdtSpent": 60,
+          "solBought": 0.44120891242003085,
+          "dropPct": 9.12796525225526,
+          "mult": 2,
+          "note": "跌 9.1% 2x 买 $60"
+        },
+        {
+          "date": "2022-01-09",
+          "type": "BUY",
+          "price": 133.14,
+          "usdtSpent": 30,
+          "solBought": 0.2253267237494367,
+          "dropPct": 2.095742333995163,
+          "mult": 1,
+          "note": "跌 2.1% 1x 买 $30"
+        },
+        {
+          "date": "2022-01-20",
+          "type": "BUY",
+          "price": 121.87,
+          "usdtSpent": 60,
+          "solBought": 0.49232789037498975,
+          "dropPct": 8.46477392218716,
+          "mult": 2,
+          "note": "跌 8.5% 2x 买 $60"
+        },
+        {
+          "date": "2022-01-21",
+          "type": "BUY",
+          "price": 93.01,
+          "usdtSpent": 120,
+          "solBought": 1.2901838511987958,
+          "dropPct": 23.680971527037006,
+          "mult": 4,
+          "note": "跌 23.7% 4x 买 $120"
+        },
+        {
+          "date": "2022-01-23",
+          "type": "BUY",
+          "price": 87.49,
+          "usdtSpent": 60,
+          "solBought": 0.6857926620185164,
+          "dropPct": 5.934845715514472,
+          "mult": 2,
+          "note": "跌 5.9% 2x 买 $60"
+        },
+        {
+          "date": "2022-02-23",
+          "type": "BUY",
+          "price": 84.92,
+          "usdtSpent": 30,
+          "solBought": 0.3532736693358455,
+          "dropPct": 2.937478568979304,
+          "mult": 1,
+          "note": "跌 2.9% 1x 买 $30"
+        },
+        {
+          "date": "2022-03-07",
+          "type": "BUY",
+          "price": 82.75,
+          "usdtSpent": 30,
+          "solBought": 0.36253776435045315,
+          "dropPct": 2.5553462081959513,
+          "mult": 1,
+          "note": "跌 2.6% 1x 买 $30"
+        },
+        {
+          "date": "2022-03-13",
+          "type": "BUY",
+          "price": 80.96,
+          "usdtSpent": 30,
+          "solBought": 0.3705533596837945,
+          "dropPct": 2.1631419939577117,
+          "mult": 1,
+          "note": "跌 2.2% 1x 买 $30"
+        },
+        {
+          "date": "2022-05-07",
+          "type": "BUY",
+          "price": 77.13,
+          "usdtSpent": 30,
+          "solBought": 0.38895371450797356,
+          "dropPct": 4.730731225296441,
+          "mult": 1,
+          "note": "跌 4.7% 1x 买 $30"
+        },
+        {
+          "date": "2022-05-08",
+          "type": "BUY",
+          "price": 69.89,
+          "usdtSpent": 60,
+          "solBought": 0.8584919158677923,
+          "dropPct": 9.386749643459089,
+          "mult": 2,
+          "note": "跌 9.4% 2x 买 $60"
+        },
+        {
+          "date": "2022-05-10",
+          "type": "BUY",
+          "price": 55.53,
+          "usdtSpent": 120,
+          "solBought": 2.1609940572663424,
+          "dropPct": 20.546573186435825,
+          "mult": 4,
+          "note": "跌 20.5% 4x 买 $120"
+        },
+        {
+          "date": "2022-05-11",
+          "type": "BUY",
+          "price": 45.1,
+          "usdtSpent": 90,
+          "solBought": 1.9955654101995566,
+          "dropPct": 18.782640014406628,
+          "mult": 3,
+          "note": "跌 18.8% 3x 买 $90"
+        },
+        {
+          "date": "2022-05-26",
+          "type": "BUY",
+          "price": 42.17,
+          "usdtSpent": 60,
+          "solBought": 1.4228124258951862,
+          "dropPct": 6.496674057649667,
+          "mult": 2,
+          "note": "跌 6.5% 2x 买 $60"
+        },
+        {
+          "date": "2022-06-01",
+          "type": "BUY",
+          "price": 40.69,
+          "usdtSpent": 30,
+          "solBought": 0.7372818874416319,
+          "dropPct": 3.509603983874802,
+          "mult": 1,
+          "note": "跌 3.5% 1x 买 $30"
+        },
+        {
+          "date": "2022-06-02",
+          "type": "BUY",
+          "price": 38.06,
+          "usdtSpent": 60,
+          "solBought": 1.5764582238570677,
+          "dropPct": 6.463504546571628,
+          "mult": 2,
+          "note": "跌 6.5% 2x 买 $60"
+        },
+        {
+          "date": "2022-06-10",
+          "type": "BUY",
+          "price": 33.74,
+          "usdtSpent": 90,
+          "solBought": 2.667457024303497,
+          "dropPct": 11.350499211770888,
+          "mult": 3,
+          "note": "跌 11.4% 3x 买 $90"
+        },
+        {
+          "date": "2022-06-12",
+          "type": "BUY",
+          "price": 27.91,
+          "usdtSpent": 90,
+          "solBought": 3.2246506628448586,
+          "dropPct": 17.27919383521044,
+          "mult": 3,
+          "note": "跌 17.3% 3x 买 $90"
+        },
+        {
+          "date": "2022-11-08",
+          "type": "BUY",
+          "price": 16.02,
+          "usdtSpent": 150,
+          "solBought": 9.363295880149813,
+          "dropPct": 42.601218201361526,
+          "mult": 5,
+          "note": "跌 42.6% 5x 买 $150"
+        },
+        {
+          "date": "2022-11-11",
+          "type": "BUY",
+          "price": 14.83,
+          "usdtSpent": 60,
+          "solBought": 4.045853000674309,
+          "dropPct": 7.428214731585515,
+          "mult": 2,
+          "note": "跌 7.4% 2x 买 $60"
+        },
+        {
+          "date": "2022-11-12",
+          "type": "BUY",
+          "price": 14.06,
+          "usdtSpent": 60,
+          "solBought": 4.267425320056899,
+          "dropPct": 5.192178017532027,
+          "mult": 2,
+          "note": "跌 5.2% 2x 买 $60"
+        },
+        {
+          "date": "2022-11-13",
+          "type": "BUY",
+          "price": 13.72,
+          "usdtSpent": 30,
+          "solBought": 2.186588921282799,
+          "dropPct": 2.4182076813655753,
+          "mult": 1,
+          "note": "跌 2.4% 1x 买 $30"
+        },
+        {
+          "date": "2022-11-17",
+          "type": "BUY",
+          "price": 13.36,
+          "usdtSpent": 30,
+          "solBought": 2.245508982035928,
+          "dropPct": 2.6239067055393672,
+          "mult": 1,
+          "note": "跌 2.6% 1x 买 $30"
+        },
+        {
+          "date": "2022-11-18",
+          "type": "BUY",
+          "price": 12.73,
+          "usdtSpent": 30,
+          "solBought": 2.356637863315004,
+          "dropPct": 4.7155688622754415,
+          "mult": 1,
+          "note": "跌 4.7% 1x 买 $30"
+        }
+      ],
+      "scenario": {
+        "id": "s_2021_11",
+        "label": "2021-11-30 高位 $200 跌到熊底（2022 熊市持续 1 年）",
+        "start": "2021-11-30",
+        "evalDate": "2022-12-31",
+        "note": "2022 熊市 1 年，SOL 从 $200 跌到 $8 跌 95%"
+      },
+      "id": "s_2021_11"
+    },
+    {
+      "startPrice": 42.96,
+      "finalPrice": 20.679,
+      "buyCount": 16,
+      "totalSpent": 960,
+      "usdtRemaining": 6040,
+      "solHolding": 59.78503940964234,
+      "finalValue": 7276.294829951994,
+      "finalProfit": 276.29482995199396,
+      "totalReturnPct": 3.9470689993141996,
+      "maxDrawdown": -5.698820073435815,
+      "s1mPnl": 1468.4683008196716,
+      "events": [
+        {
+          "date": "2022-05-31",
+          "type": "FIRST_BUY",
+          "price": 42.96,
+          "usdtSpent": 30,
+          "solBought": 0.6983240223463687,
+          "cumulativeSol": 0.6983240223463687,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2022-06-01",
+          "type": "BUY",
+          "price": 40.69,
+          "usdtSpent": 60,
+          "solBought": 1.4745637748832638,
+          "dropPct": 5.283985102420863,
+          "mult": 2,
+          "note": "跌 5.3% 2x 买 $60"
+        },
+        {
+          "date": "2022-06-02",
+          "type": "BUY",
+          "price": 38.06,
+          "usdtSpent": 60,
+          "solBought": 1.5764582238570677,
+          "dropPct": 6.463504546571628,
+          "mult": 2,
+          "note": "跌 6.5% 2x 买 $60"
+        },
+        {
+          "date": "2022-06-10",
+          "type": "BUY",
+          "price": 33.74,
+          "usdtSpent": 90,
+          "solBought": 2.667457024303497,
+          "dropPct": 11.350499211770888,
+          "mult": 3,
+          "note": "跌 11.4% 3x 买 $90"
+        },
+        {
+          "date": "2022-06-12",
+          "type": "BUY",
+          "price": 27.91,
+          "usdtSpent": 90,
+          "solBought": 3.2246506628448586,
+          "dropPct": 17.27919383521044,
+          "mult": 3,
+          "note": "跌 17.3% 3x 买 $90"
+        },
+        {
+          "date": "2022-11-08",
+          "type": "BUY",
+          "price": 16.02,
+          "usdtSpent": 150,
+          "solBought": 9.363295880149813,
+          "dropPct": 42.601218201361526,
+          "mult": 5,
+          "note": "跌 42.6% 5x 买 $150"
+        },
+        {
+          "date": "2022-11-11",
+          "type": "BUY",
+          "price": 14.83,
+          "usdtSpent": 60,
+          "solBought": 4.045853000674309,
+          "dropPct": 7.428214731585515,
+          "mult": 2,
+          "note": "跌 7.4% 2x 买 $60"
+        },
+        {
+          "date": "2022-11-12",
+          "type": "BUY",
+          "price": 14.06,
+          "usdtSpent": 60,
+          "solBought": 4.267425320056899,
+          "dropPct": 5.192178017532027,
+          "mult": 2,
+          "note": "跌 5.2% 2x 买 $60"
+        },
+        {
+          "date": "2022-11-13",
+          "type": "BUY",
+          "price": 13.72,
+          "usdtSpent": 30,
+          "solBought": 2.186588921282799,
+          "dropPct": 2.4182076813655753,
+          "mult": 1,
+          "note": "跌 2.4% 1x 买 $30"
+        },
+        {
+          "date": "2022-11-17",
+          "type": "BUY",
+          "price": 13.36,
+          "usdtSpent": 30,
+          "solBought": 2.245508982035928,
+          "dropPct": 2.6239067055393672,
+          "mult": 1,
+          "note": "跌 2.6% 1x 买 $30"
+        },
+        {
+          "date": "2022-11-18",
+          "type": "BUY",
+          "price": 12.73,
+          "usdtSpent": 30,
+          "solBought": 2.356637863315004,
+          "dropPct": 4.7155688622754415,
+          "mult": 1,
+          "note": "跌 4.7% 1x 买 $30"
+        },
+        {
+          "date": "2022-11-20",
+          "type": "BUY",
+          "price": 11.92,
+          "usdtSpent": 60,
+          "solBought": 5.033557046979865,
+          "dropPct": 6.362922230950514,
+          "mult": 2,
+          "note": "跌 6.4% 2x 买 $60"
+        },
+        {
+          "date": "2022-12-23",
+          "type": "BUY",
+          "price": 11.36,
+          "usdtSpent": 30,
+          "solBought": 2.6408450704225355,
+          "dropPct": 4.697986577181212,
+          "mult": 1,
+          "note": "跌 4.7% 1x 买 $30"
+        },
+        {
+          "date": "2022-12-26",
+          "type": "BUY",
+          "price": 10.761,
+          "usdtSpent": 60,
+          "solBought": 5.575689991636465,
+          "dropPct": 5.272887323943664,
+          "mult": 2,
+          "note": "跌 5.3% 2x 买 $60"
+        },
+        {
+          "date": "2022-12-27",
+          "type": "BUY",
+          "price": 9.942,
+          "usdtSpent": 60,
+          "solBought": 6.035003017501508,
+          "dropPct": 7.610816838583768,
+          "mult": 2,
+          "note": "跌 7.6% 2x 买 $60"
+        },
+        {
+          "date": "2022-12-28",
+          "type": "BUY",
+          "price": 9.385,
+          "usdtSpent": 60,
+          "solBought": 6.393180607352158,
+          "dropPct": 5.602494467913904,
+          "mult": 2,
+          "note": "跌 5.6% 2x 买 $60"
+        }
+      ],
+      "scenario": {
+        "id": "s_2022_05",
+        "label": "2022-05-31 高位 $100 跌到 FTX 崩盘底 $8（跌 92%）",
+        "start": "2022-05-31",
+        "evalDate": "2023-05-31",
+        "note": "FTX 崩盘前高位入场"
+      },
+      "id": "s_2022_05"
+    }
+  ]
+}

@@ -1,0 +1,1286 @@
+{
+  "generatedAt": "2026-06-06T15:34:10.356Z",
+  "coins": [
+    {
+      "id": "SOL",
+      "label": "SOL (Solana)",
+      "instId": "SOL-USDT"
+    },
+    {
+      "id": "XRP",
+      "label": "XRP (Ripple)",
+      "instId": "XRP-USDT"
+    }
+  ],
+  "startDates": [
+    {
+      "id": "low_2020_09",
+      "label": "2020-09 SOL $1.5 / XRP $0.24",
+      "start": "2020-09-20",
+      "evalDate": "2021-12-20"
+    },
+    {
+      "id": "low_2021_07",
+      "label": "2021-07 SOL $25 / XRP $0.55",
+      "start": "2021-07-20",
+      "evalDate": "2022-12-20"
+    },
+    {
+      "id": "low_2022_11",
+      "label": "2022-11 SOL $13 / XRP $0.36",
+      "start": "2022-11-20",
+      "evalDate": "2023-12-20"
+    },
+    {
+      "id": "low_2023_10",
+      "label": "2023-10 SOL $20 / XRP $0.50",
+      "start": "2023-10-20",
+      "evalDate": "2024-12-20"
+    },
+    {
+      "id": "low_2024_08",
+      "label": "2024-08 SOL $140 / XRP $0.57",
+      "start": "2024-08-20",
+      "evalDate": "2025-08-20"
+    },
+    {
+      "id": "now_2025_06",
+      "label": "2025-06 SOL $62 / XRP $2.20",
+      "start": "2025-06-06",
+      "evalDate": "2026-06-06"
+    }
+  ],
+  "results": [
+    {
+      "startPrice": 2.88,
+      "finalPrice": 177.45,
+      "buyCount": 13,
+      "totalSpent": 620,
+      "usdtRemaining": 6380,
+      "coinsHolding": 332.03037497411555,
+      "finalValue": 65298.7900391568,
+      "finalProfit": 58298.7900391568,
+      "totalReturnPct": 832.83985770224,
+      "maxDrawdown": -41.96895567605524,
+      "events": [
+        {
+          "date": "2020-09-29",
+          "type": "FIRST_BUY",
+          "price": 2.88,
+          "usdtSpent": 30,
+          "coinBought": 10.416666666666668,
+          "cumulativeCoins": 10.416666666666668,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2020-10-01",
+          "type": "BUY",
+          "price": 2.63,
+          "usdtSpent": 60,
+          "coinBought": 22.813688212927758,
+          "dropPct": 8.680555555555555,
+          "mult": 2,
+          "cumulativeCoins": 33.23035487959443,
+          "note": "跌 8.7% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2020-10-03",
+          "type": "BUY",
+          "price": 2.48,
+          "usdtSpent": 60,
+          "coinBought": 24.193548387096776,
+          "dropPct": 5.703422053231936,
+          "mult": 2,
+          "cumulativeCoins": 57.423903266691205,
+          "note": "跌 5.7% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2020-10-06",
+          "type": "BUY",
+          "price": 2.26,
+          "usdtSpent": 60,
+          "coinBought": 26.548672566371685,
+          "dropPct": 8.870967741935491,
+          "mult": 2,
+          "cumulativeCoins": 83.97257583306289,
+          "note": "跌 8.9% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2020-10-15",
+          "type": "BUY",
+          "price": 2.15,
+          "usdtSpent": 30,
+          "coinBought": 13.953488372093023,
+          "dropPct": 4.867256637168136,
+          "mult": 1,
+          "cumulativeCoins": 97.92606420515591,
+          "note": "跌 4.9% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-18",
+          "type": "BUY",
+          "price": 2.1,
+          "usdtSpent": 30,
+          "coinBought": 14.285714285714285,
+          "dropPct": 2.3255813953488293,
+          "mult": 1,
+          "cumulativeCoins": 112.21177849087019,
+          "note": "跌 2.3% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-19",
+          "type": "BUY",
+          "price": 1.89,
+          "usdtSpent": 90,
+          "coinBought": 47.61904761904762,
+          "dropPct": 10.000000000000009,
+          "mult": 3,
+          "cumulativeCoins": 159.8308261099178,
+          "note": "跌 10.0% 触发 3x, 买 $90"
+        },
+        {
+          "date": "2020-10-24",
+          "type": "BUY",
+          "price": 1.85,
+          "usdtSpent": 30,
+          "coinBought": 16.216216216216214,
+          "dropPct": 2.1164021164021065,
+          "mult": 1,
+          "cumulativeCoins": 176.04704232613403,
+          "note": "跌 2.1% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-25",
+          "type": "BUY",
+          "price": 1.77,
+          "usdtSpent": 30,
+          "coinBought": 16.949152542372882,
+          "dropPct": 4.324324324324328,
+          "mult": 1,
+          "cumulativeCoins": 192.9961948685069,
+          "note": "跌 4.3% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-10-27",
+          "type": "BUY",
+          "price": 1.54,
+          "usdtSpent": 90,
+          "coinBought": 58.44155844155844,
+          "dropPct": 12.994350282485875,
+          "mult": 3,
+          "cumulativeCoins": 251.43775331006535,
+          "note": "跌 13.0% 触发 3x, 买 $90"
+        },
+        {
+          "date": "2020-10-28",
+          "type": "BUY",
+          "price": 1.47,
+          "usdtSpent": 20,
+          "coinBought": 13.60544217687075,
+          "dropPct": 4.545454545454549,
+          "mult": 1,
+          "cumulativeCoins": 265.0431954869361,
+          "note": "跌 4.5% 触发 1x, 买 $20"
+        },
+        {
+          "date": "2020-11-02",
+          "type": "BUY",
+          "price": 1.44,
+          "usdtSpent": 30,
+          "coinBought": 20.833333333333336,
+          "dropPct": 2.040816326530614,
+          "mult": 1,
+          "cumulativeCoins": 285.8765288202694,
+          "note": "跌 2.0% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2020-11-03",
+          "type": "BUY",
+          "price": 1.3,
+          "usdtSpent": 60,
+          "coinBought": 46.15384615384615,
+          "dropPct": 9.722222222222216,
+          "mult": 2,
+          "cumulativeCoins": 332.03037497411555,
+          "note": "跌 9.7% 触发 2x, 买 $60"
+        }
+      ],
+      "coin": "SOL",
+      "coinLabel": "SOL (Solana)",
+      "window": {
+        "id": "low_2020_09",
+        "label": "2020-09 SOL $1.5 / XRP $0.24",
+        "start": "2020-09-20",
+        "evalDate": "2021-12-20"
+      },
+      "id": "SOL_low_2020_09"
+    },
+    {
+      "startPrice": 26.95,
+      "finalPrice": 12.06,
+      "buyCount": 8,
+      "totalSpent": 450,
+      "usdtRemaining": 6550,
+      "coinsHolding": 30.61203955623859,
+      "finalValue": 6919.181197048238,
+      "finalProfit": -80.81880295176234,
+      "totalReturnPct": -1.154554327882319,
+      "maxDrawdown": -4.646239254099767,
+      "events": [
+        {
+          "date": "2021-07-20",
+          "type": "FIRST_BUY",
+          "price": 26.95,
+          "usdtSpent": 30,
+          "coinBought": 1.1131725417439704,
+          "cumulativeCoins": 1.1131725417439704,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2022-11-08",
+          "type": "BUY",
+          "price": 16.02,
+          "usdtSpent": 150,
+          "coinBought": 9.363295880149813,
+          "dropPct": 40.55658627087199,
+          "mult": 5,
+          "cumulativeCoins": 10.476468421893784,
+          "note": "跌 40.6% 触发 5x, 买 $150"
+        },
+        {
+          "date": "2022-11-11",
+          "type": "BUY",
+          "price": 14.83,
+          "usdtSpent": 60,
+          "coinBought": 4.045853000674309,
+          "dropPct": 7.428214731585515,
+          "mult": 2,
+          "cumulativeCoins": 14.522321422568094,
+          "note": "跌 7.4% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2022-11-12",
+          "type": "BUY",
+          "price": 14.06,
+          "usdtSpent": 60,
+          "coinBought": 4.267425320056899,
+          "dropPct": 5.192178017532027,
+          "mult": 2,
+          "cumulativeCoins": 18.789746742624992,
+          "note": "跌 5.2% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2022-11-13",
+          "type": "BUY",
+          "price": 13.72,
+          "usdtSpent": 30,
+          "coinBought": 2.186588921282799,
+          "dropPct": 2.4182076813655753,
+          "mult": 1,
+          "cumulativeCoins": 20.97633566390779,
+          "note": "跌 2.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-17",
+          "type": "BUY",
+          "price": 13.36,
+          "usdtSpent": 30,
+          "coinBought": 2.245508982035928,
+          "dropPct": 2.6239067055393672,
+          "mult": 1,
+          "cumulativeCoins": 23.22184464594372,
+          "note": "跌 2.6% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-18",
+          "type": "BUY",
+          "price": 12.73,
+          "usdtSpent": 30,
+          "coinBought": 2.356637863315004,
+          "dropPct": 4.7155688622754415,
+          "mult": 1,
+          "cumulativeCoins": 25.578482509258723,
+          "note": "跌 4.7% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-11-20",
+          "type": "BUY",
+          "price": 11.92,
+          "usdtSpent": 60,
+          "coinBought": 5.033557046979865,
+          "dropPct": 6.362922230950514,
+          "mult": 2,
+          "cumulativeCoins": 30.61203955623859,
+          "note": "跌 6.4% 触发 2x, 买 $60"
+        }
+      ],
+      "coin": "SOL",
+      "coinLabel": "SOL (Solana)",
+      "window": {
+        "id": "low_2021_07",
+        "label": "2021-07 SOL $25 / XRP $0.55",
+        "start": "2021-07-20",
+        "evalDate": "2022-12-20"
+      },
+      "id": "SOL_low_2021_07"
+    },
+    {
+      "startPrice": 11.92,
+      "finalPrice": 87.47,
+      "buyCount": 5,
+      "totalSpent": 240,
+      "usdtRemaining": 6760,
+      "coinsHolding": 23.1614972104026,
+      "finalValue": 8785.936160993915,
+      "finalProfit": 1785.936160993915,
+      "totalReturnPct": 25.513373728484503,
+      "maxDrawdown": -3.7928526690690876,
+      "events": [
+        {
+          "date": "2022-11-20",
+          "type": "FIRST_BUY",
+          "price": 11.92,
+          "usdtSpent": 30,
+          "coinBought": 2.5167785234899327,
+          "cumulativeCoins": 2.5167785234899327,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2022-12-23",
+          "type": "BUY",
+          "price": 11.36,
+          "usdtSpent": 30,
+          "coinBought": 2.6408450704225355,
+          "dropPct": 4.697986577181212,
+          "mult": 1,
+          "cumulativeCoins": 5.157623593912469,
+          "note": "跌 4.7% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2022-12-26",
+          "type": "BUY",
+          "price": 10.761,
+          "usdtSpent": 60,
+          "coinBought": 5.575689991636465,
+          "dropPct": 5.272887323943664,
+          "mult": 2,
+          "cumulativeCoins": 10.733313585548935,
+          "note": "跌 5.3% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2022-12-27",
+          "type": "BUY",
+          "price": 9.942,
+          "usdtSpent": 60,
+          "coinBought": 6.035003017501508,
+          "dropPct": 7.610816838583768,
+          "mult": 2,
+          "cumulativeCoins": 16.768316603050444,
+          "note": "跌 7.6% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2022-12-28",
+          "type": "BUY",
+          "price": 9.385,
+          "usdtSpent": 60,
+          "coinBought": 6.393180607352158,
+          "dropPct": 5.602494467913904,
+          "mult": 2,
+          "cumulativeCoins": 23.1614972104026,
+          "note": "跌 5.6% 触发 2x, 买 $60"
+        }
+      ],
+      "coin": "SOL",
+      "coinLabel": "SOL (Solana)",
+      "window": {
+        "id": "low_2022_11",
+        "label": "2022-11 SOL $13 / XRP $0.36",
+        "start": "2022-11-20",
+        "evalDate": "2023-12-20"
+      },
+      "id": "SOL_low_2022_11"
+    },
+    {
+      "startPrice": 29.035,
+      "finalPrice": 186.7,
+      "buyCount": 2,
+      "totalSpent": 60,
+      "usdtRemaining": 6940,
+      "coinsHolding": 2.088681851842679,
+      "finalValue": 7329.956901739028,
+      "finalProfit": 329.95690173902767,
+      "totalReturnPct": 4.713670024843252,
+      "maxDrawdown": -2.2804675999525426,
+      "events": [
+        {
+          "date": "2023-10-20",
+          "type": "FIRST_BUY",
+          "price": 29.035,
+          "usdtSpent": 30,
+          "coinBought": 1.0332357499569484,
+          "cumulativeCoins": 1.0332357499569484,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2023-10-21",
+          "type": "BUY",
+          "price": 28.424,
+          "usdtSpent": 30,
+          "coinBought": 1.0554461018857304,
+          "dropPct": 2.104356810745654,
+          "mult": 1,
+          "cumulativeCoins": 2.088681851842679,
+          "note": "跌 2.1% 触发 1x, 买 $30"
+        }
+      ],
+      "coin": "SOL",
+      "coinLabel": "SOL (Solana)",
+      "window": {
+        "id": "low_2023_10",
+        "label": "2023-10 SOL $20 / XRP $0.50",
+        "start": "2023-10-20",
+        "evalDate": "2024-12-20"
+      },
+      "id": "SOL_low_2023_10"
+    },
+    {
+      "startPrice": 140.37,
+      "finalPrice": 181.63,
+      "buyCount": 7,
+      "totalSpent": 300,
+      "usdtRemaining": 6700,
+      "coinsHolding": 2.46555161974459,
+      "finalValue": 7147.818140694209,
+      "finalProfit": 147.81814069420943,
+      "totalReturnPct": 2.111687724202992,
+      "maxDrawdown": -2.7037014824210255,
+      "events": [
+        {
+          "date": "2024-08-20",
+          "type": "FIRST_BUY",
+          "price": 140.37,
+          "usdtSpent": 30,
+          "coinBought": 0.21372088053002777,
+          "cumulativeCoins": 0.21372088053002777,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2024-08-29",
+          "type": "BUY",
+          "price": 133.31,
+          "usdtSpent": 60,
+          "coinBought": 0.45007876378366213,
+          "dropPct": 5.029564721806655,
+          "mult": 2,
+          "cumulativeCoins": 0.6637996443136899,
+          "note": "跌 5.0% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2024-09-02",
+          "type": "BUY",
+          "price": 129.81,
+          "usdtSpent": 30,
+          "coinBought": 0.23110700254217703,
+          "dropPct": 2.6254594554046955,
+          "mult": 1,
+          "cumulativeCoins": 0.8949066468558668,
+          "note": "跌 2.6% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2024-09-07",
+          "type": "BUY",
+          "price": 126.75,
+          "usdtSpent": 30,
+          "coinBought": 0.23668639053254437,
+          "dropPct": 2.357291425930207,
+          "mult": 1,
+          "cumulativeCoins": 1.131593037388411,
+          "note": "跌 2.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-03-09",
+          "type": "BUY",
+          "price": 121.93,
+          "usdtSpent": 30,
+          "coinBought": 0.24604281144919216,
+          "dropPct": 3.8027613412228747,
+          "mult": 1,
+          "cumulativeCoins": 1.3776358488376033,
+          "note": "跌 3.8% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-04-02",
+          "type": "BUY",
+          "price": 114.18,
+          "usdtSpent": 60,
+          "coinBought": 0.5254860746190225,
+          "dropPct": 6.356105962437464,
+          "mult": 2,
+          "cumulativeCoins": 1.903121923456626,
+          "note": "跌 6.4% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2025-04-06",
+          "type": "BUY",
+          "price": 106.68,
+          "usdtSpent": 60,
+          "coinBought": 0.562429696287964,
+          "dropPct": 6.568575932737781,
+          "mult": 2,
+          "cumulativeCoins": 2.46555161974459,
+          "note": "跌 6.6% 触发 2x, 买 $60"
+        }
+      ],
+      "coin": "SOL",
+      "coinLabel": "SOL (Solana)",
+      "window": {
+        "id": "low_2024_08",
+        "label": "2024-08 SOL $140 / XRP $0.57",
+        "start": "2024-08-20",
+        "evalDate": "2025-08-20"
+      },
+      "id": "SOL_low_2024_08"
+    },
+    {
+      "startPrice": 151,
+      "finalPrice": 61.67,
+      "buyCount": 17,
+      "totalSpent": 780,
+      "usdtRemaining": 6220,
+      "coinsHolding": 8.359145919625789,
+      "finalValue": 6735.508528863323,
+      "finalProfit": -264.4914711366773,
+      "totalReturnPct": -3.778449587666819,
+      "maxDrawdown": -5.740958325894962,
+      "events": [
+        {
+          "date": "2025-06-06",
+          "type": "FIRST_BUY",
+          "price": 151,
+          "usdtSpent": 30,
+          "coinBought": 0.1986754966887417,
+          "cumulativeCoins": 0.1986754966887417,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2025-06-12",
+          "type": "BUY",
+          "price": 147.15,
+          "usdtSpent": 30,
+          "coinBought": 0.2038735983690112,
+          "dropPct": 2.549668874172182,
+          "mult": 1,
+          "cumulativeCoins": 0.40254909505775294,
+          "note": "跌 2.5% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-06-18",
+          "type": "BUY",
+          "price": 143.17,
+          "usdtSpent": 30,
+          "coinBought": 0.20954110498009362,
+          "dropPct": 2.704723071695561,
+          "mult": 1,
+          "cumulativeCoins": 0.6120902000378465,
+          "note": "跌 2.7% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-06-21",
+          "type": "BUY",
+          "price": 128.54,
+          "usdtSpent": 90,
+          "coinBought": 0.7001711529484985,
+          "dropPct": 10.218621219529227,
+          "mult": 3,
+          "cumulativeCoins": 1.312261352986345,
+          "note": "跌 10.2% 触发 3x, 买 $90"
+        },
+        {
+          "date": "2025-11-20",
+          "type": "BUY",
+          "price": 125.41,
+          "usdtSpent": 30,
+          "coinBought": 0.23921537357467507,
+          "dropPct": 2.4350396763653306,
+          "mult": 1,
+          "cumulativeCoins": 1.55147672656102,
+          "note": "跌 2.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-12-23",
+          "type": "BUY",
+          "price": 122.75,
+          "usdtSpent": 30,
+          "coinBought": 0.24439918533604887,
+          "dropPct": 2.1210429790287826,
+          "mult": 1,
+          "cumulativeCoins": 1.795875911897069,
+          "note": "跌 2.1% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2026-01-28",
+          "type": "BUY",
+          "price": 117.7,
+          "usdtSpent": 30,
+          "coinBought": 0.2548853016142736,
+          "dropPct": 4.114052953156821,
+          "mult": 1,
+          "cumulativeCoins": 2.0507612135113424,
+          "note": "跌 4.1% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2026-01-30",
+          "type": "BUY",
+          "price": 108.67,
+          "usdtSpent": 60,
+          "coinBought": 0.5521303027514494,
+          "dropPct": 7.672047578589636,
+          "mult": 2,
+          "cumulativeCoins": 2.6028915162627917,
+          "note": "跌 7.7% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2026-01-31",
+          "type": "BUY",
+          "price": 101.69,
+          "usdtSpent": 60,
+          "coinBought": 0.5900285180450389,
+          "dropPct": 6.423115855341864,
+          "mult": 2,
+          "cumulativeCoins": 3.1929200343078303,
+          "note": "跌 6.4% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2026-02-03",
+          "type": "BUY",
+          "price": 92.79,
+          "usdtSpent": 60,
+          "coinBought": 0.6466214031684449,
+          "dropPct": 8.752089684334734,
+          "mult": 2,
+          "cumulativeCoins": 3.8395414374762753,
+          "note": "跌 8.8% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2026-02-04",
+          "type": "BUY",
+          "price": 84.61,
+          "usdtSpent": 60,
+          "coinBought": 0.7091360359295592,
+          "dropPct": 8.815605129863139,
+          "mult": 2,
+          "cumulativeCoins": 4.548677473405834,
+          "note": "跌 8.8% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2026-02-10",
+          "type": "BUY",
+          "price": 79.71,
+          "usdtSpent": 60,
+          "coinBought": 0.7527286413248024,
+          "dropPct": 5.791277626758074,
+          "mult": 2,
+          "cumulativeCoins": 5.301406114730637,
+          "note": "跌 5.8% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2026-02-23",
+          "type": "BUY",
+          "price": 77.29,
+          "usdtSpent": 30,
+          "coinBought": 0.38814853150472245,
+          "dropPct": 3.0360055200100207,
+          "mult": 1,
+          "cumulativeCoins": 5.689554646235359,
+          "note": "跌 3.0% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2026-06-02",
+          "type": "BUY",
+          "price": 73.3,
+          "usdtSpent": 60,
+          "coinBought": 0.8185538881309686,
+          "dropPct": 5.1623754690128205,
+          "mult": 2,
+          "cumulativeCoins": 6.508108534366327,
+          "note": "跌 5.2% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2026-06-03",
+          "type": "BUY",
+          "price": 69.65,
+          "usdtSpent": 30,
+          "coinBought": 0.4307250538406317,
+          "dropPct": 4.979536152796714,
+          "mult": 1,
+          "cumulativeCoins": 6.9388335882069585,
+          "note": "跌 5.0% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2026-06-04",
+          "type": "BUY",
+          "price": 64.25,
+          "usdtSpent": 60,
+          "coinBought": 0.933852140077821,
+          "dropPct": 7.753050969131378,
+          "mult": 2,
+          "cumulativeCoins": 7.87268572828478,
+          "note": "跌 7.8% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2026-06-05",
+          "type": "BUY",
+          "price": 61.67,
+          "usdtSpent": 30,
+          "coinBought": 0.4864601913410086,
+          "dropPct": 4.015564202334628,
+          "mult": 1,
+          "cumulativeCoins": 8.359145919625789,
+          "note": "跌 4.0% 触发 1x, 买 $30"
+        }
+      ],
+      "coin": "SOL",
+      "coinLabel": "SOL (Solana)",
+      "window": {
+        "id": "now_2025_06",
+        "label": "2025-06 SOL $62 / XRP $2.20",
+        "start": "2025-06-06",
+        "evalDate": "2026-06-06"
+      },
+      "id": "SOL_now_2025_06"
+    },
+    {
+      "startPrice": 0.2322,
+      "finalPrice": 0.89065,
+      "buyCount": 2,
+      "totalSpent": 150,
+      "usdtRemaining": 6850,
+      "coinsHolding": 798.4683473340915,
+      "finalValue": 7561.155833553109,
+      "finalProfit": 561.155833553109,
+      "totalReturnPct": 8.016511907901558,
+      "maxDrawdown": -12.060172604546722,
+      "events": [
+        {
+          "date": "2020-09-20",
+          "type": "FIRST_BUY",
+          "price": 0.2322,
+          "usdtSpent": 30,
+          "coinBought": 129.19896640826875,
+          "cumulativeCoins": 129.19896640826875,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2020-12-28",
+          "type": "BUY",
+          "price": 0.1793,
+          "usdtSpent": 120,
+          "coinBought": 669.2693809258227,
+          "dropPct": 22.782084409991388,
+          "mult": 4,
+          "cumulativeCoins": 798.4683473340915,
+          "note": "跌 22.8% 触发 4x, 买 $120"
+        }
+      ],
+      "coin": "XRP",
+      "coinLabel": "XRP (Ripple)",
+      "window": {
+        "id": "low_2020_09",
+        "label": "2020-09 SOL $1.5 / XRP $0.24",
+        "start": "2020-09-20",
+        "evalDate": "2021-12-20"
+      },
+      "id": "XRP_low_2020_09"
+    },
+    {
+      "startPrice": 0.56954,
+      "finalPrice": 0.34368,
+      "buyCount": 7,
+      "totalSpent": 450,
+      "usdtRemaining": 6550,
+      "coinsHolding": 1153.7384144786906,
+      "finalValue": 6946.516818288036,
+      "finalProfit": -53.48318171196388,
+      "totalReturnPct": -0.7640454530280555,
+      "maxDrawdown": -3.0012989764877216,
+      "events": [
+        {
+          "date": "2021-07-20",
+          "type": "FIRST_BUY",
+          "price": 0.56954,
+          "usdtSpent": 30,
+          "coinBought": 52.67408786037855,
+          "cumulativeCoins": 52.67408786037855,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2022-05-08",
+          "type": "BUY",
+          "price": 0.52664,
+          "usdtSpent": 60,
+          "coinBought": 113.92981923135349,
+          "dropPct": 7.532394564034141,
+          "mult": 2,
+          "cumulativeCoins": 166.60390709173203,
+          "note": "跌 7.5% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2022-05-10",
+          "type": "BUY",
+          "price": 0.44563,
+          "usdtSpent": 90,
+          "coinBought": 201.96126831676503,
+          "dropPct": 15.382424426553237,
+          "mult": 3,
+          "cumulativeCoins": 368.56517540849705,
+          "note": "跌 15.4% 触发 3x, 买 $90"
+        },
+        {
+          "date": "2022-05-11",
+          "type": "BUY",
+          "price": 0.385,
+          "usdtSpent": 90,
+          "coinBought": 233.76623376623377,
+          "dropPct": 13.605457442272739,
+          "mult": 3,
+          "cumulativeCoins": 602.3314091747309,
+          "note": "跌 13.6% 触发 3x, 买 $90"
+        },
+        {
+          "date": "2022-06-10",
+          "type": "BUY",
+          "price": 0.36044,
+          "usdtSpent": 60,
+          "coinBought": 166.46321163022972,
+          "dropPct": 6.379220779220786,
+          "mult": 2,
+          "cumulativeCoins": 768.7946208049606,
+          "note": "跌 6.4% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2022-06-12",
+          "type": "BUY",
+          "price": 0.31383,
+          "usdtSpent": 90,
+          "coinBought": 286.77946659019216,
+          "dropPct": 12.931417156808342,
+          "mult": 3,
+          "cumulativeCoins": 1055.5740873951527,
+          "note": "跌 12.9% 触发 3x, 买 $90"
+        },
+        {
+          "date": "2022-06-17",
+          "type": "BUY",
+          "price": 0.30561,
+          "usdtSpent": 30,
+          "coinBought": 98.16432708353784,
+          "dropPct": 2.6192524615237565,
+          "mult": 1,
+          "cumulativeCoins": 1153.7384144786906,
+          "note": "跌 2.6% 触发 1x, 买 $30"
+        }
+      ],
+      "coin": "XRP",
+      "coinLabel": "XRP (Ripple)",
+      "window": {
+        "id": "low_2021_07",
+        "label": "2021-07 SOL $25 / XRP $0.55",
+        "start": "2021-07-20",
+        "evalDate": "2022-12-20"
+      },
+      "id": "XRP_low_2021_07"
+    },
+    {
+      "startPrice": 0.35621,
+      "finalPrice": 0.6156,
+      "buyCount": 2,
+      "totalSpent": 60,
+      "usdtRemaining": 6940,
+      "coinsHolding": 172.13722316541288,
+      "finalValue": 7045.967674580628,
+      "finalProfit": 45.96767458062823,
+      "totalReturnPct": 0.6566810654375461,
+      "maxDrawdown": -0.7974867187566878,
+      "events": [
+        {
+          "date": "2022-11-20",
+          "type": "FIRST_BUY",
+          "price": 0.35621,
+          "usdtSpent": 30,
+          "coinBought": 84.21998259453693,
+          "cumulativeCoins": 84.21998259453693,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2022-12-18",
+          "type": "BUY",
+          "price": 0.34123,
+          "usdtSpent": 30,
+          "coinBought": 87.91724057087596,
+          "dropPct": 4.205384464220558,
+          "mult": 1,
+          "cumulativeCoins": 172.13722316541288,
+          "note": "跌 4.2% 触发 1x, 买 $30"
+        }
+      ],
+      "coin": "XRP",
+      "coinLabel": "XRP (Ripple)",
+      "window": {
+        "id": "low_2022_11",
+        "label": "2022-11 SOL $13 / XRP $0.36",
+        "start": "2022-11-20",
+        "evalDate": "2023-12-20"
+      },
+      "id": "XRP_low_2022_11"
+    },
+    {
+      "startPrice": 0.5234,
+      "finalPrice": 2.2584,
+      "buyCount": 7,
+      "totalSpent": 240,
+      "usdtRemaining": 6760,
+      "coinsHolding": 506.40185340217346,
+      "finalValue": 7903.657945723468,
+      "finalProfit": 903.6579457234684,
+      "totalReturnPct": 12.909399224620977,
+      "maxDrawdown": -4.098855505529224,
+      "events": [
+        {
+          "date": "2023-10-20",
+          "type": "FIRST_BUY",
+          "price": 0.5234,
+          "usdtSpent": 30,
+          "coinBought": 57.3175391669851,
+          "cumulativeCoins": 57.3175391669851,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2024-01-22",
+          "type": "BUY",
+          "price": 0.5106,
+          "usdtSpent": 30,
+          "coinBought": 58.75440658049353,
+          "dropPct": 2.4455483377913496,
+          "mult": 1,
+          "cumulativeCoins": 116.07194574747862,
+          "note": "跌 2.4% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2024-01-31",
+          "type": "BUY",
+          "price": 0.4995,
+          "usdtSpent": 30,
+          "coinBought": 60.06006006006006,
+          "dropPct": 2.1739130434782714,
+          "mult": 1,
+          "cumulativeCoins": 176.1320058075387,
+          "note": "跌 2.2% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2024-04-13",
+          "type": "BUY",
+          "price": 0.4867,
+          "usdtSpent": 30,
+          "coinBought": 61.63961372508732,
+          "dropPct": 2.562562562562558,
+          "mult": 1,
+          "cumulativeCoins": 237.771619532626,
+          "note": "跌 2.6% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2024-06-10",
+          "type": "BUY",
+          "price": 0.4765,
+          "usdtSpent": 30,
+          "coinBought": 62.95907660020987,
+          "dropPct": 2.0957468666529775,
+          "mult": 1,
+          "cumulativeCoins": 300.7306961328359,
+          "note": "跌 2.1% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2024-07-03",
+          "type": "BUY",
+          "price": 0.4445,
+          "usdtSpent": 60,
+          "coinBought": 134.98312710911136,
+          "dropPct": 6.715634837355713,
+          "mult": 2,
+          "cumulativeCoins": 435.71382324194724,
+          "note": "跌 6.7% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2024-07-04",
+          "type": "BUY",
+          "price": 0.4244,
+          "usdtSpent": 30,
+          "coinBought": 70.6880301602262,
+          "dropPct": 4.521934758155232,
+          "mult": 1,
+          "cumulativeCoins": 506.40185340217346,
+          "note": "跌 4.5% 触发 1x, 买 $30"
+        }
+      ],
+      "coin": "XRP",
+      "coinLabel": "XRP (Ripple)",
+      "window": {
+        "id": "low_2023_10",
+        "label": "2023-10 SOL $20 / XRP $0.50",
+        "start": "2023-10-20",
+        "evalDate": "2024-12-20"
+      },
+      "id": "XRP_low_2023_10"
+    },
+    {
+      "startPrice": 0.5926,
+      "finalPrice": 2.8871,
+      "buyCount": 6,
+      "totalSpent": 180,
+      "usdtRemaining": 6820,
+      "coinsHolding": 334.2954596473322,
+      "finalValue": 7785.144421547813,
+      "finalProfit": 785.1444215478132,
+      "totalReturnPct": 11.216348879254474,
+      "maxDrawdown": -6.238107249855147,
+      "events": [
+        {
+          "date": "2024-08-20",
+          "type": "FIRST_BUY",
+          "price": 0.5926,
+          "usdtSpent": 30,
+          "coinBought": 50.62436719541006,
+          "cumulativeCoins": 50.62436719541006,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2024-08-27",
+          "type": "BUY",
+          "price": 0.5689,
+          "usdtSpent": 30,
+          "coinBought": 52.73334505185446,
+          "dropPct": 3.9993250084374035,
+          "mult": 1,
+          "cumulativeCoins": 103.35771224726452,
+          "note": "跌 4.0% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2024-08-29",
+          "type": "BUY",
+          "price": 0.5484,
+          "usdtSpent": 30,
+          "coinBought": 54.70459518599562,
+          "dropPct": 3.6034452452100485,
+          "mult": 1,
+          "cumulativeCoins": 158.06230743326014,
+          "note": "跌 3.6% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2024-09-05",
+          "type": "BUY",
+          "price": 0.5264,
+          "usdtSpent": 30,
+          "coinBought": 56.99088145896657,
+          "dropPct": 4.011670313639683,
+          "mult": 1,
+          "cumulativeCoins": 215.05318889222673,
+          "note": "跌 4.0% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2024-10-25",
+          "type": "BUY",
+          "price": 0.5093,
+          "usdtSpent": 30,
+          "coinBought": 58.90437855880621,
+          "dropPct": 3.2484802431610946,
+          "mult": 1,
+          "cumulativeCoins": 273.95756745103296,
+          "note": "跌 3.2% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2024-11-02",
+          "type": "BUY",
+          "price": 0.4972,
+          "usdtSpent": 30,
+          "coinBought": 60.33789219629928,
+          "dropPct": 2.375809935205184,
+          "mult": 1,
+          "cumulativeCoins": 334.2954596473322,
+          "note": "跌 2.4% 触发 1x, 买 $30"
+        }
+      ],
+      "coin": "XRP",
+      "coinLabel": "XRP (Ripple)",
+      "window": {
+        "id": "low_2024_08",
+        "label": "2024-08 SOL $140 / XRP $0.57",
+        "start": "2024-08-20",
+        "evalDate": "2025-08-20"
+      },
+      "id": "XRP_low_2024_08"
+    },
+    {
+      "startPrice": 2.1829,
+      "finalPrice": 1.0942,
+      "buyCount": 13,
+      "totalSpent": 570,
+      "usdtRemaining": 6430,
+      "coinsHolding": 381.84938664961544,
+      "finalValue": 6847.819598872009,
+      "finalProfit": -152.180401127991,
+      "totalReturnPct": -2.174005730399871,
+      "maxDrawdown": -3.4429839497575054,
+      "events": [
+        {
+          "date": "2025-06-06",
+          "type": "FIRST_BUY",
+          "price": 2.1829,
+          "usdtSpent": 30,
+          "coinBought": 13.743185670438407,
+          "cumulativeCoins": 13.743185670438407,
+          "note": "启动即首买"
+        },
+        {
+          "date": "2025-06-19",
+          "type": "BUY",
+          "price": 2.1337,
+          "usdtSpent": 30,
+          "coinBought": 14.060083423161643,
+          "dropPct": 2.253882449951895,
+          "mult": 1,
+          "cumulativeCoins": 27.80326909360005,
+          "note": "跌 2.3% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-06-21",
+          "type": "BUY",
+          "price": 1.9348,
+          "usdtSpent": 60,
+          "coinBought": 31.010957204879055,
+          "dropPct": 9.321835309556173,
+          "mult": 2,
+          "cumulativeCoins": 58.814226298479106,
+          "note": "跌 9.3% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2025-12-18",
+          "type": "BUY",
+          "price": 1.876,
+          "usdtSpent": 30,
+          "coinBought": 15.991471215351813,
+          "dropPct": 3.0390738060781572,
+          "mult": 1,
+          "cumulativeCoins": 74.80569751383092,
+          "note": "跌 3.0% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2025-12-25",
+          "type": "BUY",
+          "price": 1.8382,
+          "usdtSpent": 30,
+          "coinBought": 16.32031335001632,
+          "dropPct": 2.0149253731343197,
+          "mult": 1,
+          "cumulativeCoins": 91.12601086384724,
+          "note": "跌 2.0% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2026-01-29",
+          "type": "BUY",
+          "price": 1.7595,
+          "usdtSpent": 30,
+          "coinBought": 17.050298380221655,
+          "dropPct": 4.2813622021542805,
+          "mult": 1,
+          "cumulativeCoins": 108.1763092440689,
+          "note": "跌 4.3% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2026-01-30",
+          "type": "BUY",
+          "price": 1.6354,
+          "usdtSpent": 60,
+          "coinBought": 36.68827198238963,
+          "dropPct": 7.053140096618363,
+          "mult": 2,
+          "cumulativeCoins": 144.86458122645854,
+          "note": "跌 7.1% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2026-01-31",
+          "type": "BUY",
+          "price": 1.5946,
+          "usdtSpent": 30,
+          "coinBought": 18.81349554747272,
+          "dropPct": 2.4948024948024914,
+          "mult": 1,
+          "cumulativeCoins": 163.67807677393125,
+          "note": "跌 2.5% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2026-02-03",
+          "type": "BUY",
+          "price": 1.5437,
+          "usdtSpent": 30,
+          "coinBought": 19.433827816285547,
+          "dropPct": 3.1920230778878675,
+          "mult": 1,
+          "cumulativeCoins": 183.1119045902168,
+          "note": "跌 3.2% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2026-02-04",
+          "type": "BUY",
+          "price": 1.2964,
+          "usdtSpent": 90,
+          "coinBought": 69.42301758716445,
+          "dropPct": 16.019952063224725,
+          "mult": 3,
+          "cumulativeCoins": 252.53492217738125,
+          "note": "跌 16.0% 触发 3x, 买 $90"
+        },
+        {
+          "date": "2026-06-01",
+          "type": "BUY",
+          "price": 1.2219,
+          "usdtSpent": 60,
+          "coinBought": 49.10385465259023,
+          "dropPct": 5.746683122493058,
+          "mult": 2,
+          "cumulativeCoins": 301.63877682997145,
+          "note": "跌 5.7% 触发 2x, 买 $60"
+        },
+        {
+          "date": "2026-06-03",
+          "type": "BUY",
+          "price": 1.1689,
+          "usdtSpent": 30,
+          "coinBought": 25.66515527418941,
+          "dropPct": 4.337507160978799,
+          "mult": 1,
+          "cumulativeCoins": 327.3039321041609,
+          "note": "跌 4.3% 触发 1x, 买 $30"
+        },
+        {
+          "date": "2026-06-04",
+          "type": "BUY",
+          "price": 1.1,
+          "usdtSpent": 60,
+          "coinBought": 54.54545454545454,
+          "dropPct": 5.894430661305497,
+          "mult": 2,
+          "cumulativeCoins": 381.84938664961544,
+          "note": "跌 5.9% 触发 2x, 买 $60"
+        }
+      ],
+      "coin": "XRP",
+      "coinLabel": "XRP (Ripple)",
+      "window": {
+        "id": "now_2025_06",
+        "label": "2025-06 SOL $62 / XRP $2.20",
+        "start": "2025-06-06",
+        "evalDate": "2026-06-06"
+      },
+      "id": "XRP_now_2025_06"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# OKX Demo credentials — Phase 1
+# 复制你的 OKX 模拟盘 API key 进来(在 https://www.okx.com 账户 → Demo trading → API key)
+# 模拟盘和实盘是两套独立的 API key,这里只填 demo 那套
+#
+# 拿值:wrangler secret list 在 --remote 模式下能看到 key 名(看不到 value,需 CF dashboard 复制)
+#
+# 启动 dev 之前必须 3 个都填,否则 UI 顶部会显示"OKX credentials missing"
+
+OKX_DEMO_MODE=1
+
+# https://www.okx.com → 个人中心 → Demo Trading → API → Create
+OKX_DEMO_API_KEY=
+OKX_DEMO_API_SECRET=
+OKX_DEMO_PASSPHRASE=

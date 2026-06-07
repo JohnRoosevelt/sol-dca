@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.svelte-kit/
+.wrangler/
+dist/
+build/
+
+# Env
+.env
+.env.*
+!.env.example
+# wrangler 本地 dev secret 文件(放 OKX Demo API key 等)
+.dev.vars
+**/.dev.vars
+
+# Logs
+*.log
+npm-debug.log*
+bun-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
