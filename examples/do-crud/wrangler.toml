@@ -1,0 +1,13 @@
+name = "do-crud-example"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# Durable Object 绑定
+[[durable_objects.bindings]]
+name = "USER_DO"
+class_name = "UserDO"
+
+# DO 迁移: 第一次部署时建类
+[[migrations]]
+tag = "v1"
+new_classes = ["UserDO"]
