@@ -37,6 +37,13 @@ const WS_RECONNECT_MS = 5_000; // OKX WS 断开 5s 后重连
 // (已删 BALANCE_SYNC_MS — balance sync 不再后台跑, 见 loadPortfolio 注释)
 const MONTH_KEY_FMT = (d) => d.toISOString().slice(0, 7); // YYYY-MM
 
+// 卖出时 SOL 数量精确到 4 位小数 (4 位以后截断, Math.floor)
+//   原因: OKX 接受的下单 SOL sz 最多 4 位小数, 多于 4 位会被 OKX 隐式 round,
+//     跟内部 state (6 位) 不一致可能触发 dust 状态机误判. 卖出路径统一 truncate.
+function truncateSol4(amount) {
+	return Math.floor(amount * 10000) / 10000;
+}
+
 // FIFO 上限: signals 50 条, trades 30 条
 const SIGNAL_FIFO_LIMIT = 50;
 const TRADE_FIFO_LIMIT = 30;
@@ -702,7 +709,7 @@ export class TickerHub {
 		// OKX V5 clOrdId: 1-32 位 alphanumeric
 		const clOrdId = `solDca${this.mode === 'live' ? 'L' : 'D'}${Date.now()}${crypto.randomUUID().replace(/-/g, '').slice(0, 8)}`;
 		try {
-			const res = await this.okx.marketSell(this.instId, decision.amountSol, clOrdId);
+			const res = await this.okx.marketSell(this.instId, truncateSol4(decision.amountSol), clOrdId);
 			const ordId = res?.[0]?.ordId;
 			if (!ordId) throw new Error('OKX sell response missing ordId');
 
@@ -1264,7 +1271,7 @@ export class TickerHub {
 									? (this.lastTickerPrice - this.portfolio.avgBuyPrice) * solBalance
 									: 0;
 							const clOrdId = `solDcaR${this.mode === 'live' ? 'L' : 'D'}${Date.now()}${crypto.randomUUID().replace(/-/g, '').slice(0, 6)}`;
-							await this.okx.marketSell(this.instId, solBalance, clOrdId);
+							await this.okx.marketSell(this.instId, truncateSol4(solBalance), clOrdId);
 							soldSol = solBalance;
 							usdtGot = solBalance * this.lastTickerPrice;
 							console.log(
@@ -1473,7 +1480,7 @@ if (this.portfolio) {
 				}
 				const clOrdId = `solDcaM${this.mode === 'live' ? 'L' : 'D'}${Date.now()}${crypto.randomUUID().replace(/-/g, '').slice(0, 6)}`;
 				try {
-					const solSold = body.amountSol;
+					const solSold = truncateSol4(body.amountSol);
 					await this.okx.marketSell(this.instId, solSold, clOrdId);
 					const sellUsdt = solSold * this.lastTickerPrice;
 					// PR4 (2026-06-08): 走 applySell 而非直接改 state — 让 realizedPnL/totalSoldUSDT/
@@ -1510,7 +1517,7 @@ if (this.portfolio) {
 				if (this.portfolio.solHolding > SAFEGUARD_CONFIG.sweepCloseDust && this.missingCredentials.length === 0) {
 					try {
 						const clOrdId = `solDcaX${this.mode === 'live' ? 'L' : 'D'}${Date.now()}${crypto.randomUUID().replace(/-/g, '').slice(0, 6)}`;
-						await this.okx.marketSell(this.instId, this.portfolio.solHolding, clOrdId);
+						await this.okx.marketSell(this.instId, truncateSol4(this.portfolio.solHolding), clOrdId);
 						swept = this.portfolio.solHolding;
 						sweepUsdt = swept * this.lastTickerPrice;
 						applySell(this.portfolio, sweepUsdt, swept, this.lastTickerPrice, -1);

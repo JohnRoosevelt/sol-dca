@@ -400,8 +400,8 @@ export function applyBuy(state, amountUsdt, amountSol, price, todayMonthKey) {
  * @param {number} stairIdx 0..stairCount-1 = 阶梯触发; -1 = manual_sell
  */
 export function applySell(state, amountUsdt, amountSol, price, stairIdx) {
-	// 截到 6 位，防止精度漂移累积；clamp 到 0 防止负数
-	state.solHolding = Math.max(0, Math.floor((state.solHolding - amountSol) * 1000000) / 1000000);
+	// 截到 4 位 (跟 OKX SOL sz 精度对齐, 跟 truncateSol4 helper 一致); clamp 到 0 防止负数
+	state.solHolding = Math.max(0, Math.floor((state.solHolding - amountSol) * 10000) / 10000);
 	state.usdtBalance += amountUsdt;
 	state.totalSoldUSDT = (state.totalSoldUSDT || 0) + amountUsdt;
 	// PR4: manual_sell (stairIdx===-1) 不写入 sellStairsTriggered — manual 不是阶梯触发,
