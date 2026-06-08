@@ -1069,12 +1069,16 @@ if (this.portfolio) {
 				}
 				const clOrdId = `solDcaM${this.mode === 'live' ? 'L' : 'D'}${Date.now()}${crypto.randomUUID().replace(/-/g, '').slice(0, 6)}`;
 				try {
-					await this.okx.marketSell(this.instId, body.amountSol, clOrdId);
-					const usdtGot = body.amountSol * this.lastTickerPrice;
-					this.portfolio.solHolding = Math.max(0, Math.floor((this.portfolio.solHolding - body.amountSol) * 1000000) / 1000000);
-					this.portfolio.usdtBalance += usdtGot;
+					const solSold = body.amountSol;
+					await this.okx.marketSell(this.instId, solSold, clOrdId);
+					const sellUsdt = solSold * this.lastTickerPrice;
+					// PR4 (2026-06-08): 走 applySell 而非直接改 state — 让 realizedPnL/totalSoldUSDT/
+					//   consecutiveDcaBuys/avgBuyPrice 等字段跟阶梯 sell 走同一路径, sweep_close
+					//   判定 (卖光 < 0.0001 → 清 avgBuyPrice) 自动复用. stairIdx=-1 是 manual 标识,
+					//   applySell 跳过 sellStairsTriggered.add, 避免污染阶梯状态.
+					applySell(this.portfolio, sellUsdt, solSold, this.lastTickerPrice, -1);
 					await this.persistPortfolio();
-					this.broadcastBrowser({ type: 'manual_sell_done', amountSol: body.amountSol });
+					this.broadcastBrowser({ type: 'manual_sell_done', amountSol: solSold });
 					// 卖成功后立即拉 OKX 真实余额, dashboard 跟账户实时对准
 					await this.syncBalanceFromOkx();
 					return Response.json({ ok: true });

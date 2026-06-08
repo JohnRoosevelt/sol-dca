@@ -1,12 +1,21 @@
 /**
- * V6 验证策略 — JS 移植版
+ * V6 验证策略 — JS 移植版 (PR4: sell 关闭)
  *
- * 锁定参数：E_d5p_5x + r0.5_s0.3_n3
+ * 历史参数 (V6 验证, 现在已禁): E_d5p_5x + r0.5_s0.3_n3
  * - 5% 跌幅触发首买 $30
  * - 1-5x 加码（跌得越多买越多）
  * - 月度上限 $500U
  * - 分批回本：+50%/+100%/+150% 各卖 30%（累计 90%，留 10% 底仓）
  * - 6 窗口平均收益 +27.8% / 平均回撤 -0.8%
+ *
+ * PR4 (2026-06-08): V7 backtest 显示 sell staircase 在 6 窗口平均只贡献 -12.8%
+ *   vs 无 sell baseline (E 策略 +29.9%). User 决定完全关闭 sell staircase.
+ *   sellTriggerBase / sellPct / stairCount 全设为 0; decide() 用 guard 包住
+ *   checkSellStairs 调用, 让阶梯检查彻底短路成 null, 既不消耗 CPU 也不写入 signal.
+ *
+ *   manual_sell 仍保留 (用户主动操作), 改走 applySell(state, usdt, sol, price, -1)
+ *   路径; stairIdx=-1 是 manual 标识, applySell 跳过 sellStairsTriggered.add
+ *   (避免污染阶梯状态).
  *
  * Source: validate-v6.mjs (runEWithSellParams + checkSellStairsV6)
  */
@@ -35,7 +44,7 @@
  */
 
 export const STRATEGY_CONFIG = {
-	id: 'E_d5p_5x_r0.5_s0.3_n3',
+	id: 'E_d5p_5x_r0_s0_n0',
 	baseAmount: 30,
 	triggerPct: 5,
 	monthLimit: 500,
@@ -47,9 +56,14 @@ export const STRATEGY_CONFIG = {
 		{ minDrop: 50, multiplier: 5 }
 	],
 	initialUSDT: 0, // 默认本金基准 = 0; 实际余额由 syncBalanceFromOkx 从 OKX 真实账户拉, 不假设
-	sellTriggerBase: 0.5,
-	sellPct: 0.3,
-	stairCount: 3
+	// PR4 (2026-06-08): sell staircase 已关闭 — V7 backtest 6 窗口平均显示
+	//   r0.5_s0.3_n3 组合 vs 无 sell baseline 贡献 -12.8%. User 决定彻底关闭.
+	//   decide() 用 cfg.sellTriggerBase > 0 作为 guard, 三个 0 让阶梯计算短路成空数组.
+	//   manual_sell 仍可走, 路径走 applySell(state, usdt, sol, price, -1)
+	//   (stairIdx=-1 = manual, 跳过 sellStairsTriggered.add).
+	sellTriggerBase: 0,
+	sellPct: 0,
+	stairCount: 0
 };
 
 /**
@@ -113,23 +127,28 @@ export function checkSellStairs(state, currentPrice, stairRatios, sellPct) {
  */
 export function decide(ticker, state, todayMonthKey) {
 	const cfg = STRATEGY_CONFIG;
-	const stairRatios = buildStairRatios(cfg.sellTriggerBase, cfg.stairCount);
 
-	// 1) 分批回本检查（先卖后买 — V6 顺序）
-	const sellInfo = checkSellStairs(state, ticker.last, stairRatios, cfg.sellPct);
-	if (sellInfo) {
-		const sellSol = state.solHolding * cfg.sellPct;
-		const sellUsdt = sellSol * ticker.last;
-		const profitPct = (sellInfo.profit / Math.max(state.totalSpent, 1)) * 100;
-		return {
-			action: 'sell',
-			reason: `浮盈 +${profitPct.toFixed(0)}% ≥ +${(sellInfo.ratio * 100).toFixed(0)}%（r=${sellInfo.ratio.toFixed(1)}），卖 ${(cfg.sellPct * 100).toFixed(0)}%`,
-			amountSol: sellSol,
-			amountUsdt: sellUsdt,
-			profitPct,
-			stairIdx: sellInfo.stairIdx,
-			sellPct: cfg.sellPct
-		};
+	// PR4 (2026-06-08): sell staircase 关闭 guard — V7 backtest 6 窗口 -12.8% 贡献,
+	//   User 决定彻底关掉. sellTriggerBase=0 时短路 checkSellStairs 调用,
+	//   省 CPU + 保证不会写入 sell 信号. manual_sell 不走这条路径 (UI 直接调 applySell).
+	let sellInfo = null;
+	if (cfg.sellTriggerBase > 0) {
+		const stairRatios = buildStairRatios(cfg.sellTriggerBase, cfg.stairCount);
+		sellInfo = checkSellStairs(state, ticker.last, stairRatios, cfg.sellPct);
+		if (sellInfo) {
+			const sellSol = state.solHolding * cfg.sellPct;
+			const sellUsdt = sellSol * ticker.last;
+			const profitPct = (sellInfo.profit / Math.max(state.totalSpent, 1)) * 100;
+			return {
+				action: 'sell',
+				reason: `浮盈 +${profitPct.toFixed(0)}% ≥ +${(sellInfo.ratio * 100).toFixed(0)}%（r=${sellInfo.ratio.toFixed(1)}），卖 ${(cfg.sellPct * 100).toFixed(0)}%`,
+				amountSol: sellSol,
+				amountUsdt: sellUsdt,
+				profitPct,
+				stairIdx: sellInfo.stairIdx,
+				sellPct: cfg.sellPct
+			};
+		}
 	}
 
 	// 2) DCA 触发判断
@@ -241,18 +260,28 @@ export function applyBuy(state, amountUsdt, amountSol, price, todayMonthKey) {
  * 应用 sell 后的状态变更（in-memory）
  * 累加 realizedPnL = (sellPrice - avgBuyPrice) * amountSol (按本次卖出的成本基础)
  * 卖光 (solHolding < dust) 时清 avgBuyPrice — 重新开始累计
+ *
+ * PR4 (2026-06-08): stairIdx=-1 = manual_sell 标识 (来自 ticker-hub.js 的
+ *   manual_sell handler 重构后调用). manual sell 不污染 sellStairsTriggered set,
+ *   因为 manual 不属于"分批回本阶梯"的概念 — 只是用户主动减仓. 其他字段
+ *   (solHolding/usdtBalance/totalSoldUSDT/realizedPnL/avgBuyPrice) 跟阶梯 sell
+ *   行为完全一致, 保证 sweep_close 判定 (< 0.0001 → 清 avgBuyPrice) 通用.
  * @param {PortfolioState} state
  * @param {number} amountUsdt
  * @param {number} amountSol
  * @param {number} price 卖出价
- * @param {number} stairIdx
+ * @param {number} stairIdx 0..stairCount-1 = 阶梯触发; -1 = manual_sell
  */
 export function applySell(state, amountUsdt, amountSol, price, stairIdx) {
 	// 截到 6 位，防止精度漂移累积；clamp 到 0 防止负数
 	state.solHolding = Math.max(0, Math.floor((state.solHolding - amountSol) * 1000000) / 1000000);
 	state.usdtBalance += amountUsdt;
 	state.totalSoldUSDT = (state.totalSoldUSDT || 0) + amountUsdt;
-	state.sellStairsTriggered.add(stairIdx);
+	// PR4: manual_sell (stairIdx===-1) 不写入 sellStairsTriggered — manual 不是阶梯触发,
+	//   不应污染阶梯状态 (例: 用户手动卖 50%, 不应影响后续自动阶梯 0/1/2 触发判定).
+	if (stairIdx !== -1) {
+		state.sellStairsTriggered.add(stairIdx);
+	}
 	state.consecutiveDcaBuys = 0;
 	// 累加已实现盈亏
 	if (state.avgBuyPrice != null) {
