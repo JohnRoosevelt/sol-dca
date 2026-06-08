@@ -1,23 +1,27 @@
 /**
- * V6 验证策略 — JS 移植版 (PR4: sell 关闭)
+ * V6 验证策略 — JS 移植版 (PR5: 自适应规模)
  *
- * 历史参数 (V6 验证, 现在已禁): E_d5p_5x + r0.5_s0.3_n3
- * - 5% 跌幅触发首买 $30
- * - 1-5x 加码（跌得越多买越多）
- * - 月度上限 $500U
- * - 分批回本：+50%/+100%/+150% 各卖 30%（累计 90%，留 10% 底仓）
- * - 6 窗口平均收益 +27.8% / 平均回撤 -0.8%
+ * 历史参数 (V6 验证, 已禁):
+ *   - 5% 跌幅触发首买 $30
+ *   - 1-5x 加码（跌得越多买越多）
+ *   - 月度上限 $500U
+ *   - 6 窗口平均收益 +27.8% / 平均回撤 -0.8%
  *
- * PR4 (2026-06-08): V7 backtest 显示 sell staircase 在 6 窗口平均只贡献 -12.8%
- *   vs 无 sell baseline (E 策略 +29.9%). User 决定完全关闭 sell staircase.
- *   sellTriggerBase / sellPct / stairCount 全设为 0; decide() 用 guard 包住
- *   checkSellStairs 调用, 让阶梯检查彻底短路成 null, 既不消耗 CPU 也不写入 signal.
+ * PR4 (2026-06-08): sell staircase 关闭 — V7 backtest 6 窗口 sell 贡献 -12.8%
+ *   decide() 用 cfg.sellTriggerBase > 0 作为 guard, 三个 0 让阶梯计算短路成空数组.
+ *   manual_sell 走 applySell(state, usdt, sol, price, -1), stairIdx=-1 = manual.
  *
- *   manual_sell 仍保留 (用户主动操作), 改走 applySell(state, usdt, sol, price, -1)
- *   路径; stairIdx=-1 是 manual 标识, applySell 跳过 sellStairsTriggered.add
- *   (避免污染阶梯状态).
+ * PR5 (2026-06-08): 5% 自适应 + 4 safeguards
+ *   - baseAmount / monthLimit 从绝对美元数改成余额百分比 (5% + 5%, SDA 什一同构)
+ *   - minBuyAbsolute $5 防 dust, maxBuyPct 25% 防一次买光
+ *   - 4 个护栏 (SAFEGUARD_CONFIG):
+ *     1. maxLossPct -30% 触发 isStarted=false (TickerHub 实现, strategy 提供配置)
+ *     2. minBalance $30 触发 decide() hold
+ *     3. circuitBreakerFails 3 触发 isPaused=true (TickerHub executeBuy/Sell 实现)
+ *     4. sweepCloseDust 0.0001 触发 close_round (TickerHub applySell 路径实现)
+ *   - 全是 pause-only, 不自动卖, 不自动重启
  *
- * Source: validate-v6.mjs (runEWithSellParams + checkSellStairsV6)
+ * Source: validate-v5.mjs (runDynamicDCA) + validate-adaptive.mjs (5% 自适应验证)
  */
 
 /**
@@ -34,6 +38,9 @@
  * @property {string|null} currentMonthReset
  * @property {Map<string, number>} monthSpent
  * @property {Set<number>} sellStairsTriggered
+ * @property {number|null} [currentRoundId] PR5: dca_rounds.id 当前活跃 round (init_dca 写, close_round 清)
+ * @property {number} [peakValue] PR5: maxLossPct 护栏用, 用余额 + 持仓×价算总值, peak = max(peakValue, currentValue)
+ * @property {number} [consecutiveFailures] PR5: circuit_breaker 护栏用, buy/sell 异常累加, 成功重置
  */
 
 /**
@@ -43,11 +50,29 @@
  * @property {number} ts
  */
 
+/**
+ * PR5: 策略层配置 — 自适应供应率 + 单笔保护
+ *
+ * supplyRates.base = 0.05: 建仓率 (5% × 当前余额 = 首买金额)
+ * supplyRates.monthly = 0.05: 月供率 (5% × 当前余额 = 月度投入上限)
+ *   SDA 什一奉献同构 — 固定 5% 投入, 跟账户规模自适应
+ *   小账户不被过度杠杆, 大账户不被过度保守
+ *
+ * minBuyAbsolute = $5: OKX 最小单笔约束, 防 dust
+ * maxBuyPct = 0.25: 单笔不超过余额 1/4, 防 50% 跌幅触发 5x 加码时把余额买光
+ *   (5x × 5% = 25% 刚好等于 maxBuyPct, 实测不触发 clamp, 留作未来 baseRate 调整的安全网)
+ */
 export const STRATEGY_CONFIG = {
-	id: 'E_d5p_5x_r0_s0_n0',
-	baseAmount: 30,
-	triggerPct: 5,
-	monthLimit: 500,
+	id: 'adaptive_5pct_v1',
+	// PR5: 自适应供应率 (SDA 什一同构 — 余额百分比, 不是绝对美元数)
+	supplyRates: {
+		base: 0.05, // 建仓率 — 5% × 当前余额
+		monthly: 0.05 // 月供率 — 5% × 当前余额 (月度上限)
+	},
+	// PR5: 单笔保护 (OKX 最小 + 防一次买光)
+	minBuyAbsolute: 5, // $5 OKX 最小单笔
+	maxBuyPct: 0.25, // 25% 余额 / 单笔
+	triggerPct: 5, // 5% 跌幅触发 DCA (跟 V5 E 一致)
 	multiplierTiers: [
 		{ minDrop: 5, multiplier: 1 },
 		{ minDrop: 10, multiplier: 2 },
@@ -55,15 +80,41 @@ export const STRATEGY_CONFIG = {
 		{ minDrop: 30, multiplier: 4 },
 		{ minDrop: 50, multiplier: 5 }
 	],
-	initialUSDT: 0, // 默认本金基准 = 0; 实际余额由 syncBalanceFromOkx 从 OKX 真实账户拉, 不假设
-	// PR4 (2026-06-08): sell staircase 已关闭 — V7 backtest 6 窗口平均显示
-	//   r0.5_s0.3_n3 组合 vs 无 sell baseline 贡献 -12.8%. User 决定彻底关闭.
-	//   decide() 用 cfg.sellTriggerBase > 0 作为 guard, 三个 0 让阶梯计算短路成空数组.
-	//   manual_sell 仍可走, 路径走 applySell(state, usdt, sol, price, -1)
-	//   (stairIdx=-1 = manual, 跳过 sellStairsTriggered.add).
+	initialUSDT: 0, // 默认本金基准 = 0; 实际余额由 syncBalanceFromOkx 从 OKX 真实账户拉
+	// PR4 (2026-06-08): sell staircase 关闭 — V7 backtest -12.8% 贡献, User 决定彻底关掉
 	sellTriggerBase: 0,
 	sellPct: 0,
 	stairCount: 0
+};
+
+/**
+ * PR5: 4 个护栏配置 (pause-only, no auto-sell, no auto-restart)
+ *
+ * 1. maxLossPct = -0.30: 峰值回撤 30% 触发 isStarted=false
+ *    例: peakValue=$1000, currentValue=$700 → (700-1000)/1000 = -30% 触发
+ *    跟 V7+ 2021-11 跌 95% 场景对比: 触到时已经 -30%, 给 user 心理缓冲
+ *    触到后: isStarted=false (策略层关闭), 持仓保留 (user 手动 manual_sell 决定)
+ *
+ * 2. minBalance = $30: 余额 < $30 触发 decide() 返回 hold
+ *    5% × $600 = $30, 跟 $300 月供 1/10 同步, 防 dust
+ *    触到后: decide() 返 hold, buyAmount=0, sendAlert warn
+ *    跟 maxBuyPct 互补: maxBuyPct 防单笔过大, minBalance 防余额过小
+ *
+ * 3. circuitBreakerFails = 3: 连续 3 次 OKX API 失败触发 isPaused=true
+ *    计数: executeBuy/executeSell catch 累加, 成功重置 0
+ *    触到后: isPaused=true, sendAlert critical, 需 user 手动调 resume
+ *
+ * 4. sweepCloseDust = 0.0001: applySell/manual_sell 后 solHolding < 0.0001 触发 close_round
+ *    行为: 调 closeDcaRound(currentRoundId, { closeReason: 'manual_sell_all' })
+ *         → 重置 portfolio (lastBuyPrice=null, avgBuyPrice=null, sellStairsTriggered=Set)
+ *         → 持仓 solHolding/usdtBalance 保留 (sell 已关, 不需要清仓)
+ *         → isStarted=false, sendAlert info "Round closed automatically"
+ */
+export const SAFEGUARD_CONFIG = {
+	maxLossPct: -0.30, // 峰值回撤 30% 触发 isStarted=false
+	minBalance: 30, // $30 USDT 余额下限, decide 返 hold
+	circuitBreakerFails: 3, // 连续失败 3 次触发 isPaused=true
+	sweepCloseDust: 0.0001 // SOL 持仓 < 0.0001 触发 sweep close round
 };
 
 /**
@@ -82,7 +133,50 @@ export function getMultiplier(dropPct, tiers) {
 }
 
 /**
- * 生成阶梯比例数组（V6 buildStairRatios）
+ * PR5: 计算当前余额下的动态供应率值
+ *   - baseAmount: 5% × usdtBalance (建仓基准)
+ *   - monthLimit: 5% × usdtBalance (月供上限)
+ *   - maxBuyByPct: 25% × usdtBalance (单笔上限)
+ *
+ * @param {PortfolioState} state
+ * @param {STRATEGY_CONFIG} [cfg]
+ * @returns {{baseAmount: number, monthLimit: number, maxBuyByPct: number, minBuyAbsolute: number}}
+ */
+export function computeBuyAmount(state, cfg = STRATEGY_CONFIG) {
+	const balance = state?.usdtBalance ?? 0;
+	const baseAmount = balance * cfg.supplyRates.base;
+	const monthLimit = balance * cfg.supplyRates.monthly;
+	const maxBuyByPct = balance * cfg.maxBuyPct;
+	return {
+		baseAmount,
+		monthLimit,
+		maxBuyByPct,
+		minBuyAbsolute: cfg.minBuyAbsolute
+	};
+}
+
+/**
+ * PR5: clamp buyAmount 到 [minBuyAbsolute, maxBuyByPct, balance] 区间
+ *   - 低于 minBuyAbsolute → 视为 dust, 返 0 (跳过本次 buy)
+ *   - 高于 maxBuyByPct → 缩到 maxBuyByPct (防一次买光)
+ *   - 高于 balance → 缩到 balance (防负余额)
+ *
+ * @param {number} amount 原始买入金额
+ * @param {number} balance 可用 USDT 余额
+ * @param {{maxBuyPct: number, minBuyAbsolute: number}} limits
+ * @returns {number} clamp 后的买入金额, 0 表示跳过
+ */
+export function clampBuyAmount(amount, balance, limits) {
+	const maxBuyByPct = balance * limits.maxBuyPct;
+	const cap = Math.min(balance, maxBuyByPct);
+	if (amount > cap) amount = cap;
+	if (amount < limits.minBuyAbsolute) return 0; // dust skip
+	if (amount > balance) amount = balance;
+	return amount;
+}
+
+/**
+ * 生成阶梯比例数组（V6 buildStairRatios — PR4 关闭, 留作未来参考）
  * @param {number} base triggerBase
  * @param {number} count stairCount
  * @returns {number[]}
@@ -94,19 +188,15 @@ export function buildStairRatios(base, count) {
 }
 
 /**
- * 检查分批回本触发（V6 checkSellStairsV6）
- * 浮盈 = (现价 - 平均买入价) × 持仓数 — 不包含 usdt 余额, 不包含已实现 P&L
- *   (已实现 P&L 是历史行为, 不再触发新 sell — sell stair 是基于"未实现浮盈"的概念)
+ * 检查分批回本触发（V6 checkSellStairs — PR4 关闭）
  * @param {PortfolioState} state
  * @param {number} currentPrice
  * @param {ReturnType<typeof buildStairRatios>} stairRatios
  * @param {number} sellPct
- * @returns {null | { stairIdx: number, profit: number, triggerProfit: number, ratio: number }}
  */
 export function checkSellStairs(state, currentPrice, stairRatios, sellPct) {
 	if (state.solHolding < 0.001) return null;
-	if (state.avgBuyPrice == null) return null; // 冷启动守卫: 没平均买入价不算 profit
-	// 浮盈 = (currentPrice - avgBuyPrice) * solHolding
+	if (state.avgBuyPrice == null) return null;
 	const profit = (currentPrice - state.avgBuyPrice) * state.solHolding;
 	for (let i = 0; i < stairRatios.length; i++) {
 		if (state.sellStairsTriggered.has(i)) continue;
@@ -127,6 +217,18 @@ export function checkSellStairs(state, currentPrice, stairRatios, sellPct) {
  */
 export function decide(ticker, state, todayMonthKey) {
 	const cfg = STRATEGY_CONFIG;
+
+	// PR5 (2026-06-08): min_balance 护栏 (sg_min_balance) — pause-only, no auto-sell
+	//   余额低于阈值 → decide 返 hold, buyAmount=0, 不实际关策略 (isStarted 不动)
+	//   触到后 sendAlert 'warn' 让 user 知道要充值
+	if (state.usdtBalance < SAFEGUARD_CONFIG.minBalance) {
+		return {
+			action: 'hold',
+			reason: `余额不足 $${state.usdtBalance.toFixed(2)} < $${SAFEGUARD_CONFIG.minBalance} 阈值 (sg_min_balance)`,
+			drawdownPct: null,
+			multiplier: 1
+		};
+	}
 
 	// PR4 (2026-06-08): sell staircase 关闭 guard — V7 backtest 6 窗口 -12.8% 贡献,
 	//   User 决定彻底关掉. sellTriggerBase=0 时短路 checkSellStairs 调用,
@@ -173,18 +275,38 @@ export function decide(ticker, state, todayMonthKey) {
 	let buyAmount = 0;
 	let holdReason = null;
 
+	// PR5: 自适应供应率 — baseAmount / monthLimit 动态从 usdtBalance × supplyRates 算
+	//   旧逻辑: cfg.baseAmount (写死 $30) / cfg.monthLimit (写死 $500)
+	//   新逻辑: 余额 $7000 → baseAmount=$350, monthLimit=$350 (跟账户规模自适应)
+	const { baseAmount, monthLimit } = computeBuyAmount(state, cfg);
+
 	if (drawdownPct >= cfg.triggerPct) {
 		// 触发: 算加码倍数 + 月度上限
 		const mult = getMultiplier(drawdownPct, cfg.multiplierTiers);
-		buyAmount = cfg.baseAmount * mult;
+		buyAmount = baseAmount * mult;
 		const spent = state.monthSpent.get(todayMonthKey) || 0;
-		if (spent + buyAmount > cfg.monthLimit) {
-			holdReason = `月度上限已满 (本月已用 $${spent.toFixed(0)} / $${cfg.monthLimit})`;
+		if (spent + buyAmount > monthLimit) {
+			holdReason = `月度上限已满 (本月已用 $${spent.toFixed(0)} / $${monthLimit.toFixed(0)})`;
 			buyAmount = 0;
 		}
 	} else {
 		// 跌幅不够 — 最常见的 hold 情况
 		holdReason = `跌幅不足 (${drawdownPct.toFixed(2)}% < ${cfg.triggerPct}%)`;
+	}
+
+	// PR5: clamp buyAmount 到 [minBuyAbsolute, maxBuyPct, balance] 区间
+	if (buyAmount > 0) {
+		const clamped = clampBuyAmount(buyAmount, state.usdtBalance, {
+			maxBuyPct: cfg.maxBuyPct,
+			minBuyAbsolute: cfg.minBuyAbsolute
+		});
+		if (clamped === 0) {
+			// dust skip — 计算金额低于 $5 最小单笔
+			holdReason = `dust skip ($${buyAmount.toFixed(2)} < $${cfg.minBuyAbsolute} minBuyAbsolute)`;
+			buyAmount = 0;
+		} else if (clamped < buyAmount) {
+			buyAmount = clamped;
+		}
 	}
 
 	// 余额检查 (在触发之后)
@@ -228,6 +350,8 @@ export function maybeResetMonth(state, todayMonthKey) {
  * 加权平均价公式: newAvg = (oldAvg * oldQty + newPrice * newQty) / (oldQty + newQty)
  *   第一次买: avgBuyPrice = price (冷启动)
  *   P0-2: peakPrice = max(peakPrice ?? 0, price) — 高位建仓后熊市初期用 peak 算 drawdown, 不漏 DCA
+ *
+ * PR5: peakPrice 持续跟踪 (applyBuy + onOkxTicker 两路更新)
  * @param {PortfolioState} state
  * @param {number} amountUsdt
  * @param {number} amountSol
@@ -266,6 +390,9 @@ export function applyBuy(state, amountUsdt, amountSol, price, todayMonthKey) {
  *   因为 manual 不属于"分批回本阶梯"的概念 — 只是用户主动减仓. 其他字段
  *   (solHolding/usdtBalance/totalSoldUSDT/realizedPnL/avgBuyPrice) 跟阶梯 sell
  *   行为完全一致, 保证 sweep_close 判定 (< 0.0001 → 清 avgBuyPrice) 通用.
+ *
+ * PR5: peakPrice 不重置 — sell 后价格继续涨, peakPrice 应该继续更新
+ *   (否则丢高水位, 后续 DCA 决策会基于错的基准)
  * @param {PortfolioState} state
  * @param {number} amountUsdt
  * @param {number} amountSol

@@ -10,6 +10,11 @@ import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
  *   **DO storage + D1 共享同一份 schema** (V6 关键字段对齐):
  *   - sell_stairs_triggered: V6 分批回本状态机 (JSON 数组, 应用层 Set 序列化)
  *   - 之前 D1 缺这一列 → sell stairs 触发后 DO 重启就丢状态, 现已补齐
+ *
+ * PR5 (2026-06-08): 加 current_round_id 列
+ *   - dca_rounds.id 外键, init_dca 写, close_round 清
+ *   - 老 row 没有此列 → rowToPortfolio 读出来 row.current_round_id = undefined → 序列化为 null
+ *   - decide() / loadPortfolio() 不受影响, 走 null fallback 路径
  */
 export const portfolioState = sqliteTable('portfolio_state', {
 	id: integer('id').primaryKey(),
@@ -25,6 +30,7 @@ export const portfolioState = sqliteTable('portfolio_state', {
 	currentMonthReset: text('current_month_reset'),
 	consecutiveDcaBuys: integer('consecutive_dca_buys').notNull().default(0),
 	sellStairsTriggered: text('sell_stairs_triggered').notNull().default('[]'),
+	currentRoundId: integer('current_round_id'), // PR5: dca_rounds 外键 (未启动 / 已清空 → null)
 	updatedAt: text('updated_at')
 		.notNull()
 		.$defaultFn(() => new Date().toISOString())
@@ -93,4 +99,43 @@ export const klines = sqliteTable('klines', {
 	low: real('low').notNull(),
 	close: real('close').notNull(),
 	volume: real('volume').notNull()
+});
+
+/**
+ * PR5: DCA 投资轮次 — 记录每轮生命周期 + P&L
+ *   每轮 DCA 启动时 init_dca handler 写一行, 关闭时 close_round handler 更新 endedAt
+ *   - 字段对照 DO storage SQL_SCHEMA (CREATE TABLE IF NOT EXISTS dca_rounds (...))
+ *   - 21 字段: roundUuid/startedAt/endedAt/startPrice/endPrice/initialUsdt/initialSol/finalUsdt/finalSol/
+ *              totalSpent/totalSold/totalBuys/totalSells/realizedPnL/unrealizedPnL/totalReturnPct/
+ *              status/closeReason/mode/notes/updatedAt
+ *   - 跟 portfolio_state.currentRoundId 配合: 启动时 portfolio 记 round.id, 关闭时清
+ *   - 跟 SDA 价值观对应: dca_rounds 帮你看每一轮的"管家表现" (P&L)
+ */
+export const dcaRounds = sqliteTable('dca_rounds', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	roundUuid: text('round_uuid').notNull().unique(),
+	startedAt: text('started_at').notNull(),
+	endedAt: text('ended_at'), // null = open
+	startPrice: real('start_price').notNull(),
+	endPrice: real('end_price'),
+	initialUsdt: real('initial_usdt').notNull(),
+	initialSol: real('initial_sol').notNull().default(0),
+	finalUsdt: real('final_usdt'),
+	finalSol: real('final_sol'),
+	totalSpent: real('total_spent').notNull().default(0),
+	totalSold: real('total_sold').notNull().default(0),
+	totalBuys: integer('total_buys').notNull().default(0),
+	totalSells: integer('total_sells').notNull().default(0),
+	realizedPnL: real('realized_pnl').notNull().default(0),
+	unrealizedPnL: real('unrealized_pnl').notNull().default(0),
+	totalReturnPct: real('total_return_pct'),
+	status: text('status', { enum: ['open', 'closed'] }).notNull().default('open'),
+	closeReason: text('close_reason', {
+		enum: ['manual_close', 'manual_sell_all', 'user_reset', 'auto']
+	}),
+	mode: text('mode', { enum: ['demo', 'live'] }).notNull().default('demo'),
+	notes: text('notes'),
+	updatedAt: text('updated_at')
+		.notNull()
+		.$defaultFn(() => new Date().toISOString())
 });
