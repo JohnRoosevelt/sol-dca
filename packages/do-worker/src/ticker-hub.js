@@ -22,10 +22,12 @@ import { createOkxClient, checkOkxCredentials } from './okx/client.js';
 import { subscribeTicker } from './okx/ws-public.js';
 import {
 	STRATEGY_CONFIG,
+	SAFEGUARD_CONFIG,
 	decide,
 	applyBuy,
 	applySell,
-	maybeResetMonth
+	maybeResetMonth,
+	computeBuyAmount
 } from './strategy.js';
 import { isSabbath } from './sabbath.js';
 import { sendAlert } from './alert.js';
@@ -53,6 +55,10 @@ const HOLD_PRICE_CHANGE_PCT = 0.2;
 // P0-3 fix (2026-06-08): 删 destructive schema rebuild. DO 启动不再 DROP 老表, 改为纯 idempotent
 //   CREATE TABLE IF NOT EXISTS. 历史 trades / signals 保留. _migrations 跟踪表记录已应用的
 //   migration 文件 (后续 PR5 加 dca_rounds 表时按序应用, 不再清历史).
+//
+// PR5 (2026-06-08): 加 dca_rounds 表 + portfolio_state.current_round_id 列
+//   - dca_rounds: 21 字段, 记录每轮 DCA 的生命周期 (start/end/initial/final/P&L)
+//   - portfolio_state.current_round_id: 当前活跃 round 的外键, init_dca 写, close_round 清
 const SQL_SCHEMA = `
 	CREATE TABLE IF NOT EXISTS _migrations (
 		id INTEGER PRIMARY KEY,
@@ -73,6 +79,8 @@ const SQL_SCHEMA = `
 		current_month_reset TEXT,
 		consecutive_dca_buys INTEGER NOT NULL DEFAULT 0,
 		sell_stairs_triggered TEXT NOT NULL DEFAULT '[]',
+		-- PR5: 当前活跃 dca_round 的外键 (init_dca 写, close_round 清, 未启动时 null)
+		current_round_id INTEGER,
 		updated_at TEXT NOT NULL
 	);
 	CREATE TABLE IF NOT EXISTS signals (
@@ -105,8 +113,36 @@ const SQL_SCHEMA = `
 		intended_amount_usdt REAL,
 		created_at TEXT NOT NULL
 	);
+	-- PR5: DCA 投资轮次 — 记录每轮生命周期 + P&L
+	--   字段对照 Drizzle schema (packages/do-worker/src/db/schema.js)
+	CREATE TABLE IF NOT EXISTS dca_rounds (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		round_uuid TEXT NOT NULL UNIQUE,
+		started_at TEXT NOT NULL,
+		ended_at TEXT,
+		start_price REAL NOT NULL,
+		end_price REAL,
+		initial_usdt REAL NOT NULL,
+		initial_sol REAL NOT NULL DEFAULT 0,
+		final_usdt REAL,
+		final_sol REAL,
+		total_spent REAL NOT NULL DEFAULT 0,
+		total_sold REAL NOT NULL DEFAULT 0,
+		total_buys INTEGER NOT NULL DEFAULT 0,
+		total_sells INTEGER NOT NULL DEFAULT 0,
+		realized_pnl REAL NOT NULL DEFAULT 0,
+		unrealized_pnl REAL NOT NULL DEFAULT 0,
+		total_return_pct REAL,
+		status TEXT NOT NULL DEFAULT 'open',
+		close_reason TEXT,
+		mode TEXT NOT NULL DEFAULT 'demo',
+		notes TEXT,
+		updated_at TEXT NOT NULL
+	);
 	CREATE INDEX IF NOT EXISTS idx_signals_created_at ON signals (created_at DESC);
 	CREATE INDEX IF NOT EXISTS idx_trades_created_at ON trades (created_at DESC);
+	CREATE INDEX IF NOT EXISTS idx_dca_rounds_status ON dca_rounds (status);
+	CREATE INDEX IF NOT EXISTS idx_dca_rounds_started_at ON dca_rounds (started_at DESC);
 	CREATE TABLE IF NOT EXISTS alert_cooldowns (
 		key TEXT PRIMARY KEY,
 		last_sent INTEGER NOT NULL
@@ -152,6 +188,14 @@ export class TickerHub {
 		/** @type {any} */
 		this.portfolio = null;
 		this.isPaused = false;
+		// PR5: 硬启动开关 (策略层) — 跟 OKX WS 推送 (传输层) 完全独立
+		//   isStarted=false 时 broadcast ticker 给 browser (实时价格显示) 但跳过 decide()
+		//   init_dca → isStarted=true; close_round / max_loss 触发 → isStarted=false
+		this.isStarted = false;
+		// PR5: 4 个护栏的运行时状态
+		this.consecutiveFailures = 0; // circuit_breaker 计数
+		this.peakValue = 0; // max_loss 护栏: 总值 peak (usdtBalance + solHolding × price)
+		this.currentRoundId = null; // dca_rounds.id 当前活跃 round
 		this.lastTickerAt = 0;
 		this.lastTickerPrice = 0;
 		this.lastOkxWsState = 'init';
@@ -201,6 +245,11 @@ export class TickerHub {
 			.toArray();
 		if (rows.length > 0) {
 			this.portfolio = this.rowToPortfolio(rows[0]);
+			// PR5: 从存储恢复 isStarted/currentRoundId (DO 重启不能丢活跃 round)
+			if (this.portfolio.currentRoundId != null) {
+				this.currentRoundId = this.portfolio.currentRoundId;
+				this.isStarted = true;
+			}
 			console.log(`[TickerHub] loaded portfolio (${this.mode}) from DO storage:`, JSON.stringify(this.portfolio));
 			return;
 		}
@@ -241,7 +290,8 @@ export class TickerHub {
 			consecutiveDcaBuys: 0,
 			currentMonthReset: MONTH_KEY_FMT(new Date()),
 			monthSpent: new Map(),
-			sellStairsTriggered: new Set()
+			sellStairsTriggered: new Set(),
+			currentRoundId: null // PR5: 跟 isStarted 同步, init_dca 写, close_round 清
 		};
 	}
 
@@ -269,7 +319,8 @@ export class TickerHub {
 			monthSpent,
 			sellStairsTriggered: new Set(
 				JSON.parse(row.sell_stairs_triggered || '[]')
-			)
+			),
+			currentRoundId: row.current_round_id != null ? row.current_round_id : null // PR5: 老 row 无此列 → null
 		};
 	}
 
@@ -292,8 +343,8 @@ export class TickerHub {
 				`INSERT OR REPLACE INTO portfolio_state
 				 (id, usdt_balance, sol_holding, avg_buy_price, last_buy_price, peak_price, total_spent, total_sold,
 				  realized_pnl, current_month_spent, current_month_reset, consecutive_dca_buys,
-				  sell_stairs_triggered, updated_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				  sell_stairs_triggered, current_round_id, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				portfolioRowId,
 				p.usdtBalance,
 				p.solHolding,
@@ -307,6 +358,7 @@ export class TickerHub {
 				p.currentMonthReset,
 				p.consecutiveDcaBuys,
 				sellStairsJson,
+				p.currentRoundId ?? null, // PR5: dca_rounds 外键
 				updatedAt
 			);
 		} catch (err) {
@@ -362,6 +414,7 @@ export class TickerHub {
 		this.lastTickerPrice = parseFloat(d.last);
 
 		// 1) 推给所有 browser（实时价格）
+		//   PR5: 即使 isStarted=false (硬启动开关 off), 价格仍照常广播 — 传输层不断, 策略层开关
 		this.broadcastBrowser({
 			type: 'ticker',
 			price: this.lastTickerPrice,
@@ -381,14 +434,53 @@ export class TickerHub {
 			}
 		}
 
+		// PR5 (sg_max_loss): 持续跟踪 peakValue (总值峰值) — 用于 max_loss 护栏
+		//   触发: (currentValue - peakValue) / peakValue <= -0.30 → isStarted=false + sendAlert
+		//   currentValue = usdtBalance + solHolding × ticker.last
+		//   跟踪放在 paused/sabbath/portfolio 守卫之前 — max_loss 护栏要能独立检测, 不被这些守卫短路
+		if (this.portfolio && this.isStarted) {
+			const currentValue = this.portfolio.usdtBalance + this.portfolio.solHolding * this.lastTickerPrice;
+			const newPeak = Math.max(this.peakValue, currentValue);
+			if (newPeak !== this.peakValue) {
+				this.peakValue = newPeak;
+			}
+			// 检查 max_loss 护栏
+			if (this.peakValue > 0) {
+				const drawdownPct = (currentValue - this.peakValue) / this.peakValue;
+				if (drawdownPct <= SAFEGUARD_CONFIG.maxLossPct) {
+					console.log(
+						`[TickerHub] sg_max_loss triggered: drawdown=${(drawdownPct * 100).toFixed(2)}% ≤ ${(SAFEGUARD_CONFIG.maxLossPct * 100).toFixed(0)}%, isStarted=false`
+					);
+					this.isStarted = false;
+					this.sendAlertSafe(
+						'critical',
+						'MAX_LOSS triggered',
+						`峰值回撤 ${(drawdownPct * 100).toFixed(2)}% ≤ ${(SAFEGUARD_CONFIG.maxLossPct * 100).toFixed(0)}%, 已暂停策略 (持仓保留)`
+					);
+					this.broadcastBrowser({
+						type: 'max_loss_triggered',
+						drawdownPct: drawdownPct * 100,
+						peakValue: this.peakValue,
+						currentValue,
+						isStarted: false
+					});
+					return;
+				}
+			}
+		}
+
 		// 2) 调策略
 		if (this.isPaused) return;
 		if (isSabbath()) return;
 		if (!this.portfolio) return;
 
+		// PR5: 硬启动开关 — !isStarted 时跳过 decide() (策略层 off), 但 ticker 仍广播 (传输层 on)
+		//   区别于 isPaused: isPaused 是短期暂停 (state 不动), isStarted 是长期开关 (跟 dca_rounds 同步)
+		if (!this.isStarted) return;
+
 		// P0-1 in-flight lock: 上一次 buy/sell 还在 await OKX API 时, 后续 ticker 跳过 decide+execute
-		//   锁放在此处 (paused/sabbath/portfolio 守卫之后) — paused / sabbath 仍走早 return,
-		//   不污染 isTrading 状态. WS ticker 广播 (上方 365-372) 永远不走这把锁, 价格照常推.
+		//   锁放在此处 (paused/sabbath/portfolio/isStarted 守卫之后) — 这些守卫仍走早 return,
+		//   不污染 isTrading 状态. WS ticker 广播 (上方) 永远不走这把锁, 价格照常推.
 		if (this.isTrading) return;
 		this.isTrading = true;
 		try {
@@ -522,10 +614,28 @@ export class TickerHub {
 			await this.persistTrade(trade);
 			this.broadcastBrowser({ type: 'trade', side: 'buy', amountUsdt: usdtSpent, price: realAvgPx, reason: decision.reason });
 			this.sendAlertSafe('info', 'BUY executed', `${decision.reason} @ $${realAvgPx.toFixed(2)} — ${solBought} SOL ($${usdtSpent})`);
+			// PR5 (sg_circuit_breaker): 成功执行 → 重置 consecutiveFailures
+			this.consecutiveFailures = 0;
 			// 下单成功后立即拉 OKX 真实余额, dashboard 跟账户实时对准
 			await this.syncBalanceFromOkx();
 		} catch (err) {
 			console.error('[TickerHub] buy failed:', err);
+			// PR5 (sg_circuit_breaker): 累加 consecutiveFailures, 触到阈值 → isPaused=true
+			this.consecutiveFailures++;
+			if (this.consecutiveFailures >= SAFEGUARD_CONFIG.circuitBreakerFails) {
+				this.isPaused = true;
+				this.sendAlertSafe(
+					'critical',
+					'CIRCUIT BREAKER triggered',
+					`连续 ${this.consecutiveFailures} 次 buy/sell 失败 (阈值 ${SAFEGUARD_CONFIG.circuitBreakerFails}), 策略已暂停 — 需手动调 /control resume 恢复`
+				);
+				this.broadcastBrowser({
+					type: 'circuit_breaker_triggered',
+					consecutiveFailures: this.consecutiveFailures,
+					threshold: SAFEGUARD_CONFIG.circuitBreakerFails,
+					isPaused: true
+				});
+			}
 			this.sendAlertSafe('error', 'BUY failed', err.message);
 			this.broadcastBrowser({ type: 'error', action: 'buy', message: err.message });
 		}
@@ -582,10 +692,28 @@ export class TickerHub {
 			await this.persistTrade(trade);
 			this.broadcastBrowser({ type: 'trade', side: 'sell', amountSol: solSold, price: realAvgPx, reason: decision.reason });
 			this.sendAlertSafe('info', 'SELL executed', `${decision.reason} @ $${realAvgPx.toFixed(2)} — ${solSold} SOL ($${usdtGot})`);
+			// PR5 (sg_circuit_breaker): 成功执行 → 重置 consecutiveFailures
+			this.consecutiveFailures = 0;
 			// 卖单成功后立即拉 OKX 真实余额, dashboard 跟账户实时对准
 			await this.syncBalanceFromOkx();
 		} catch (err) {
 			console.error('[TickerHub] sell failed:', err);
+			// PR5 (sg_circuit_breaker): 累加 consecutiveFailures, 触到阈值 → isPaused=true
+			this.consecutiveFailures++;
+			if (this.consecutiveFailures >= SAFEGUARD_CONFIG.circuitBreakerFails) {
+				this.isPaused = true;
+				this.sendAlertSafe(
+					'critical',
+					'CIRCUIT BREAKER triggered',
+					`连续 ${this.consecutiveFailures} 次 buy/sell 失败 (阈值 ${SAFEGUARD_CONFIG.circuitBreakerFails}), 策略已暂停 — 需手动调 /control resume 恢复`
+				);
+				this.broadcastBrowser({
+					type: 'circuit_breaker_triggered',
+					consecutiveFailures: this.consecutiveFailures,
+					threshold: SAFEGUARD_CONFIG.circuitBreakerFails,
+					isPaused: true
+				});
+			}
 			this.sendAlertSafe('error', 'SELL failed', err.message);
 			this.broadcastBrowser({ type: 'error', action: 'sell', message: err.message });
 		}
@@ -679,6 +807,140 @@ export class TickerHub {
 			});
 		}
 
+	}
+
+	/**
+	 * PR5: 打开一个新 DCA round (init_dca handler 调)
+	 *   写 dca_rounds row + 返回 roundId
+	 *   status='open', started_at=now, end_* 全 NULL (round 未结束)
+	 *
+	 * @param {{startPrice: number, initialUsdt: number, initialSol: number, closeReason?: string|null, notes?: string}} args
+	 * @returns {Promise<number>} roundId (AUTOINCREMENT pk)
+	 */
+	async openDcaRound({ startPrice, initialUsdt, initialSol, closeReason = null, notes = null }) {
+		const roundUuid = crypto.randomUUID();
+		const now = new Date().toISOString();
+		try {
+			// 1) insert new round row
+			this.state.storage.sql.exec(
+				`INSERT INTO dca_rounds
+				 (round_uuid, started_at, ended_at, start_price, end_price,
+				  initial_usdt, initial_sol, final_usdt, final_sol,
+				  total_spent, total_sold, total_buys, total_sells,
+				  realized_pnl, unrealized_pnl, total_return_pct,
+				  status, close_reason, mode, notes, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				roundUuid,
+				now,
+				null, // ended_at NULL = open
+				startPrice,
+				null, // end_price NULL
+				initialUsdt,
+				initialSol,
+				null, // final_usdt NULL until close
+				null, // final_sol NULL
+				0, // total_spent
+				0, // total_sold
+				0, // total_buys
+				0, // total_sells
+				0, // realized_pnl
+				0, // unrealized_pnl
+				null, // total_return_pct
+				'open',
+				closeReason,
+				this.mode,
+				notes,
+				now
+			);
+			const result = this.state.storage.sql.exec('SELECT last_insert_rowid() AS id').one();
+			const roundId = result?.id;
+			this.state.storage.sql.exec(
+				'INSERT OR REPLACE INTO _migrations (id, name, applied_at) VALUES ((SELECT COALESCE(MAX(id),0)+1 FROM _migrations), ?, ?)',
+				`open_dca_round_${roundUuid}`,
+				now
+			);
+			console.log(`[TickerHub] openDcaRound: roundId=${roundId} uuid=${roundUuid} startPrice=$${startPrice}`);
+			return roundId;
+		} catch (err) {
+			console.error('[TickerHub] openDcaRound failed:', err);
+			throw err;
+		}
+	}
+
+	/**
+	 * PR5: 关闭一个 DCA round (close_round handler / sweep_close 自动触发调)
+	 *   写 endedAt + endPrice + finalUsdt/Sol + totalReturnPct
+	 *   重置 portfolio 策略字段 (lastBuyPrice=null, avgBuyPrice=null, sellStairsTriggered=Set, currentRoundId=null)
+	 *   持仓 solHolding/usdtBalance 保留 (跟 user 决策一致: sell 已关, sweep_close 不需要清仓)
+	 *   isStarted=false, peakValue=0
+	 *
+	 * @param {number} roundId
+	 * @param {{closeReason?: string}} [opts]
+	 * @returns {Promise<{roundId: number, endPrice: number, finalUsdt: number, finalSol: number, totalReturnPct: number, closeReason: string}>}
+	 */
+	async closeDcaRound(roundId, opts = {}) {
+		const closeReason = opts.closeReason ?? 'manual_close';
+		const now = new Date().toISOString();
+		const endPrice = this.lastTickerPrice;
+		const finalUsdt = this.portfolio.usdtBalance;
+		const finalSol = this.portfolio.solHolding;
+		// totalReturnPct = (finalValue - initialUsdt) / initialUsdt × 100
+		//   initialUsdt 从 dca_rounds 表读 (initial_usdt 列), 这次查询
+		const roundRow = this.state.storage.sql
+			.exec('SELECT * FROM dca_rounds WHERE id = ?', roundId)
+			.toArray()[0];
+		const initialUsdt = roundRow?.initial_usdt ?? finalUsdt;
+		const finalValue = finalUsdt + finalSol * endPrice;
+		const totalReturnPct = initialUsdt > 0
+			? ((finalValue - initialUsdt) / initialUsdt) * 100
+			: 0;
+		try {
+			this.state.storage.sql.exec(
+				`UPDATE dca_rounds SET
+				 ended_at = ?, end_price = ?, final_usdt = ?, final_sol = ?,
+				 total_return_pct = ?, status = 'closed', close_reason = ?, updated_at = ?
+				 WHERE id = ?`,
+				now,
+				endPrice,
+				finalUsdt,
+				finalSol,
+				totalReturnPct,
+				closeReason,
+				now,
+				roundId
+			);
+		} catch (err) {
+			console.error('[TickerHub] closeDcaRound UPDATE failed:', err);
+			throw err;
+		}
+		// 重置 portfolio 策略字段 (保留 holdings)
+		this.portfolio.lastBuyPrice = null;
+		this.portfolio.avgBuyPrice = null;
+		this.portfolio.peakPrice = null;
+		this.portfolio.sellStairsTriggered = new Set();
+		this.portfolio.consecutiveDcaBuys = 0;
+		this.portfolio.currentRoundId = null;
+		// 重置护栏峰值
+		this.peakValue = 0;
+		this.isStarted = false;
+		await this.persistPortfolio();
+		console.log(
+			`[TickerHub] closeDcaRound: roundId=${roundId} endPrice=$${endPrice.toFixed(2)} ` +
+			`returnPct=${totalReturnPct.toFixed(2)}% reason=${closeReason}`
+		);
+		this.sendAlertSafe(
+			'info',
+			'DCA round closed',
+			`round_id=${roundId} end=$${endPrice.toFixed(2)} return=${totalReturnPct.toFixed(2)}% reason=${closeReason}`
+		);
+		return {
+			roundId,
+			endPrice,
+			finalUsdt,
+			finalSol,
+			totalReturnPct,
+			closeReason
+		};
 	}
 
 	/**
@@ -830,6 +1092,10 @@ export class TickerHub {
 						type: 'hello',
 						portfolio: this.portfolio ? this.snapshotPortfolio() : null,
 						paused: this.isPaused,
+						isStarted: this.isStarted, // PR5: 硬启动开关状态
+						currentRoundId: this.currentRoundId, // PR5: 当前活跃 round
+						consecutiveFailures: this.consecutiveFailures, // PR5: circuit_breaker 计数
+						peakValue: this.peakValue, // PR5: max_loss 护栏峰值
 						okxWsState: this.lastOkxWsState,
 						lastTickerPrice: this.lastTickerPrice,
 						lastTickerAt: this.lastTickerAt,
@@ -848,6 +1114,10 @@ export class TickerHub {
 			return Response.json({
 				mode: this.mode,				portfolio: this.portfolio ? this.snapshotPortfolio() : null,
 				paused: this.isPaused,
+				isStarted: this.isStarted, // PR5: 硬启动开关
+				currentRoundId: this.currentRoundId, // PR5: 当前活跃 round
+				consecutiveFailures: this.consecutiveFailures, // PR5: circuit_breaker 计数
+				peakValue: this.peakValue, // PR5: max_loss 护栏峰值
 				okxWsState: this.lastOkxWsState,
 				lastTickerPrice: this.lastTickerPrice,
 				lastTickerAt: this.lastTickerAt,
@@ -877,6 +1147,10 @@ export class TickerHub {
 					mode: this.mode,
 					portfolio: this.portfolio ? this.snapshotPortfolio() : null,
 					paused: this.isPaused,
+					isStarted: this.isStarted, // PR5
+					currentRoundId: this.currentRoundId, // PR5
+					consecutiveFailures: this.consecutiveFailures, // PR5
+					peakValue: this.peakValue, // PR5
 					okxWsState: this.lastOkxWsState,
 					lastTickerPrice: this.lastTickerPrice,
 					lastTickerAt: this.lastTickerAt,
@@ -965,6 +1239,14 @@ export class TickerHub {
 				this.state.storage.sql.exec('DELETE FROM portfolio_state WHERE id = ?', portfolioRowId);
 				this.state.storage.sql.exec('DELETE FROM signals WHERE mode = ?', this.mode);
 				this.state.storage.sql.exec('DELETE FROM trades WHERE mode = ?', this.mode);
+				// PR5: 重置时清掉当前活跃 round (close_round 路径) — reset 视作 user_reset
+				if (this.currentRoundId != null) {
+					try {
+						await this.closeDcaRound(this.currentRoundId, { closeReason: 'user_reset' });
+					} catch (err) {
+						console.warn('[TickerHub] reset closeDcaRound failed:', err.message);
+					}
+				}
 				this.portfolio = null;
 				await this.loadPortfolio();
 			// 清 hold 内存缓冲 + rate limit 状态
@@ -985,10 +1267,16 @@ if (this.portfolio) {
 					consecutiveDcaBuys: 0,
 					sellStairsTriggered: new Set(),
 					monthSpent: new Map(),
-					currentMonthReset: MONTH_KEY_FMT(new Date())
+					currentMonthReset: MONTH_KEY_FMT(new Date()),
+					currentRoundId: null // PR5: 跟 isStarted 同步, reset 后无活跃 round
 				};
 			}
 				await this.persistPortfolio();
+				// PR5: reset 也清护栏运行时状态
+				this.consecutiveFailures = 0;
+				this.peakValue = 0;
+				this.isStarted = false;
+				this.currentRoundId = null;
 				this.broadcastBrowser({
 					type: 'portfolio_reset',
 					portfolio: this.snapshotPortfolio(),
@@ -1035,11 +1323,78 @@ if (this.portfolio) {
 						{ status: 409 }
 					);
 				}
-				const baseAmount = STRATEGY_CONFIG.baseAmount;
+				// PR5: init_dca 只创建 round + 设 isStarted=true — 不再自动买入
+				//   首买由 manual_buy handler 显式触发 (策略层强制要求 user 主动决策)
+				const roundId = await this.openDcaRound({
+					startPrice: this.lastTickerPrice,
+					initialUsdt: this.portfolio.usdtBalance,
+					initialSol: this.portfolio.solHolding,
+					closeReason: null,
+					notes: body?.notes ?? 'init_dca (manual first buy)'
+				});
+				this.currentRoundId = roundId;
+				this.isStarted = true;
+				this.peakValue = this.portfolio.usdtBalance + this.portfolio.solHolding * this.lastTickerPrice;
+				await this.persistPortfolio();
+				this.broadcastBrowser({
+					type: 'dca_initialized',
+					roundId,
+					isStarted: true,
+					lastTickerPrice: this.lastTickerPrice
+				});
+				this.sendAlertSafe(
+					'info',
+					'DCA started',
+					`round_id=${roundId} start_price=$${this.lastTickerPrice.toFixed(2)} (manual first buy via /control manual_buy)`
+				);
+				return Response.json({ ok: true, roundId, isStarted: true });
+			}
+			if (action === 'manual_buy') {
+				if (this.missingCredentials.length > 0) {
+					return Response.json(
+						{ ok: false, error: 'OKX credentials missing' },
+						{ status: 503 }
+					);
+				}
+				if (!this.isStarted || this.currentRoundId == null) {
+					return Response.json(
+						{ ok: false, error: 'DCA not started — call /control init_dca first' },
+						{ status: 409 }
+					);
+				}
+				// PR5: manual_buy 走动态供应率 — baseAmount = balance × supplyRates.base
+				//   跟 decide() 自动 DCA 同样的金额公式, 保证 user 主动 / 被动决策的一致性
+				const { baseAmount } = computeBuyAmount(this.portfolio);
+				let buyAmount = Number.isFinite(body.amountUsdt) && body.amountUsdt > 0
+					? body.amountUsdt
+					: baseAmount;
+				const clamped = baseAmount; // manual 也走自适应基准, body.amountUsdt 兜底
+				if (body.amountUsdt && Number.isFinite(body.amountUsdt) && body.amountUsdt > 0) {
+					// 显式指定金额时, clamp 到 [minBuyAbsolute, balance × maxBuyPct, balance]
+					const minBuy = STRATEGY_CONFIG.minBuyAbsolute;
+					const maxBuy = this.portfolio.usdtBalance * STRATEGY_CONFIG.maxBuyPct;
+					if (buyAmount < minBuy) buyAmount = minBuy;
+					if (buyAmount > maxBuy) buyAmount = maxBuy;
+					if (buyAmount > this.portfolio.usdtBalance) buyAmount = this.portfolio.usdtBalance;
+				} else {
+					buyAmount = clamped;
+				}
+				if (buyAmount < STRATEGY_CONFIG.minBuyAbsolute) {
+					return Response.json(
+						{ ok: false, error: `buyAmount $${buyAmount.toFixed(2)} < minBuyAbsolute $${STRATEGY_CONFIG.minBuyAbsolute}` },
+						{ status: 400 }
+					);
+				}
+				if (buyAmount > this.portfolio.usdtBalance) {
+					return Response.json(
+						{ ok: false, error: `buyAmount $${buyAmount.toFixed(2)} > balance $${this.portfolio.usdtBalance.toFixed(2)}` },
+						{ status: 400 }
+					);
+				}
 				const decision = {
 					action: 'buy',
-					amountUsdt: baseAmount,
-					reason: `手动 Start DCA:首买 $${baseAmount} 建立基准价`,
+					amountUsdt: buyAmount,
+					reason: `manual_buy: $${buyAmount.toFixed(0)} (round ${this.currentRoundId})`,
 					drawdownPct: null,
 					multiplier: 1
 				};
@@ -1058,7 +1413,7 @@ if (this.portfolio) {
 				await this.persistSignal(signal);
 				this.broadcastBrowser({ type: 'signal', ...signal });
 				await this.executeBuy(decision, signal);
-				return Response.json({ ok: true });
+				return Response.json({ ok: true, amountUsdt: buyAmount, roundId: this.currentRoundId });
 			}
 			if (action === 'manual_sell' && body.amountSol) {
 				if (this.missingCredentials.length > 0) {
@@ -1079,12 +1434,62 @@ if (this.portfolio) {
 					applySell(this.portfolio, sellUsdt, solSold, this.lastTickerPrice, -1);
 					await this.persistPortfolio();
 					this.broadcastBrowser({ type: 'manual_sell_done', amountSol: solSold });
+					// PR5 (sg_sweep_close): manual_sell 后 solHolding < dust → 自动 close round
+					//   保留 solHolding/usdtBalance (manual_sell 已经清掉了 SOL), 只重置 DCA 策略状态
+					if (this.portfolio.solHolding < SAFEGUARD_CONFIG.sweepCloseDust && this.currentRoundId != null) {
+						await this.closeDcaRound(this.currentRoundId, { closeReason: 'manual_sell_all' });
+					}
 					// 卖成功后立即拉 OKX 真实余额, dashboard 跟账户实时对准
 					await this.syncBalanceFromOkx();
 					return Response.json({ ok: true });
 				} catch (err) {
 					return Response.json({ ok: false, error: String(err) }, { status: 500 });
 				}
+			}
+			// PR5: close_round handler — sweep sell + close round + reset state + isStarted=false
+			if (action === 'close_round') {
+				if (this.currentRoundId == null) {
+					return Response.json(
+						{ ok: false, error: 'No active DCA round to close' },
+						{ status: 404 }
+					);
+				}
+				let swept = 0;
+				let sweepUsdt = 0;
+				let sweepErr = null;
+				// 1) sweep sell all remaining SOL (if any) via applySell(-1)
+				if (this.portfolio.solHolding > SAFEGUARD_CONFIG.sweepCloseDust && this.missingCredentials.length === 0) {
+					try {
+						const clOrdId = `solDcaX${this.mode === 'live' ? 'L' : 'D'}${Date.now()}${crypto.randomUUID().replace(/-/g, '').slice(0, 6)}`;
+						await this.okx.marketSell(this.instId, this.portfolio.solHolding, clOrdId);
+						swept = this.portfolio.solHolding;
+						sweepUsdt = swept * this.lastTickerPrice;
+						applySell(this.portfolio, sweepUsdt, swept, this.lastTickerPrice, -1);
+						await this.persistPortfolio();
+					} catch (err) {
+						sweepErr = `sweep sell failed: ${err.message}`;
+						console.warn('[TickerHub] close_round sweep failed:', err.message);
+					}
+				}
+				// 2) close the round + reset state
+				const closed = await this.closeDcaRound(this.currentRoundId, {
+					closeReason: body?.reason ?? 'manual_close'
+				});
+				this.broadcastBrowser({
+					type: 'round_closed',
+					roundId: this.currentRoundId,
+					closed,
+					swept,
+					sweepUsdt,
+					sweepErr
+				});
+				return Response.json({
+					ok: true,
+					closed,
+					swept,
+					sweepUsdt,
+					sweepErr
+				});
 			}
 			return new Response('unknown action', { status: 400 });
 		}
@@ -1127,7 +1532,17 @@ if (this.portfolio) {
 			// 总盈亏: 浮盈 + 已实现 (reset 后没持仓 → 0)
 			profit: totalPnL,
 			// 持仓百分比 (相对平均买入价, 没持仓 → 0)
-			profitPct: positionPct
+			profitPct: positionPct,
+			// PR5: 护栏运行时状态 — 前端可见
+			isStarted: this.isStarted,
+			currentRoundId: p.currentRoundId ?? null,
+			consecutiveFailures: this.consecutiveFailures,
+			peakValue: this.peakValue,
+			// 护栏阈值 (前端可以展示 "余额 < $30 暂停" 等)
+			sgMinBalance: SAFEGUARD_CONFIG.minBalance,
+			sgMaxLossPct: SAFEGUARD_CONFIG.maxLossPct,
+			sgCircuitBreakerFails: SAFEGUARD_CONFIG.circuitBreakerFails,
+			sgSweepCloseDust: SAFEGUARD_CONFIG.sweepCloseDust
 		};
 	}
 
