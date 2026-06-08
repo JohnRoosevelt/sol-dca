@@ -45,6 +45,7 @@
 
 	// 按钮 loading 状态 — 防止 user 重复点击 + 让 user 知道过程没走完
 	let starting = $state(false);   // 启动 V6 (init_dca) 中
+	let firstBuying = $state(false); // 首买 (manual_buy) 中
 	let resetting = $state(false);  // Reset (卖光 + 清空) 中
 	let refreshing = $state(false); // 手动刷新余额中 — 独立状态, 跟 Start/Reset 隔开
 	let controlInFlight = $derived(starting || resetting);
@@ -81,8 +82,29 @@
 		if (target !== 'live') return;
 		performModeSwitch(target);
 	}
-	// 派生:是否已初始化 DCA(决定 Start DCA 按钮是否显示)
-	let needsInit = $derived(portfolio != null && portfolio.lastBuyPrice == null);
+	// 派生:3 态机 — 未启动 / 已启动未首买 / 已首买 (active or paused)
+	//   PR5: init_dca 只建 round, 不首买; 首买要 user 显式 manual_buy 触发
+	//   - needsInit:       lastBuyPrice=null + isStarted=false → 还没点 "启动 V6"
+	//   - needsFirstBuy:   lastBuyPrice=null + isStarted=true  → 已建 round, 还没首买
+	//   - 既不 needsInit 也不 needsFirstBuy → active/paused (dca_rounds 跑中)
+	let needsInit = $derived(
+		portfolio != null && portfolio.lastBuyPrice == null && portfolio.isStarted !== true
+	);
+	let needsFirstBuy = $derived(
+		portfolio != null && portfolio.lastBuyPrice == null && portfolio.isStarted === true
+	);
+	// PR5 supplyRates.base = 0.05 — 5% × 余额, 跟 backend computeBuyAmount 同公式
+	//   跟后端只是展示对齐, 实际金额以 manual_buy handler 算为准
+	let suggestedFirstBuy = $derived.by(() => {
+		if (!portfolio) return 0;
+		const balance = portfolio.usdtBalance ?? 0;
+		return Math.max(0, balance * 0.05);
+	});
+	let monthBudgetMax = $derived.by(() => {
+		if (!portfolio) return 0;
+		const balance = portfolio.usdtBalance ?? 0;
+		return Math.max(0, balance * 0.05);
+	});
 
 	// 决策日志:hold 折叠掉(避免误读"每秒钟都买入")
 	let visibleSignals = $derived(recentSignals.filter((s) => s.action !== 'hold'));
@@ -382,6 +404,28 @@
 		}
 	}
 
+	// === First buy (manual_buy) — PR5 显式首买按钮 ===
+	//   后端 computeBuyAmount(portfolio) 算 5% × 余额 (minBuyAbsolute / maxBuyPct clamp)
+	//   不传 amountUsdt, 让 backend 用 baseAmount; 想指定金额走 console / feishu
+	async function doFirstBuy() {
+		if (firstBuying || missingCredentials.length > 0) return;
+		firstBuying = true;
+		try {
+			// sendControl 返 parsed body: { ok, amountUsdt, roundId } 或 { ok: false, error }
+			// HTTP 4xx/5xx 时 sendControl 内部已 set lastError, 这里再 double-check body.ok
+			const data = await sendControl('manual_buy');
+			if (!data?.ok) {
+				lastError = `first buy failed: ${data?.error ?? 'unknown'}`;
+			}
+			// 后端 executeBuy 完成会 broadcast trade + portfolio_synced
+			await fetchState();
+		} catch (err) {
+			lastError = `first buy failed: ${err}`;
+		} finally {
+			firstBuying = false;
+		}
+	}
+
 	// === Reset — 包装 loading + fetch ===
 	async function doReset() {
 		if (resetting || missingCredentials.length > 0) return;
@@ -580,7 +624,7 @@
 			</div>
 			<div class="card">
 				<div class="label">本月已用</div>
-				<div class="value">${(portfolio.monthSpentThisMonth ?? 0).toFixed(0)} / $500</div>
+				<div class="value">${(portfolio.monthSpentThisMonth ?? 0).toFixed(0)} / ${monthBudgetMax.toFixed(0)}</div>
 			</div>
 			<div class="card">
 				<div class="label">最近买入</div>
@@ -613,15 +657,26 @@
 				onclick={startDca}
 				disabled={starting || missingCredentials.length > 0}
 				class:loading={starting}
+				title="建一个 DCA round (写 dca_rounds + 设 isStarted=true), 不自动买 — 首买点下一个按钮"
 			>
-				{starting ? '⏳ 启动中(首买 $30…)' : '🚀 启动 V6(首买 $30 建基准价)'}
+				{starting ? '⏳ 启动中(建 round…)' : '🚀 启动 V6(建 round)'}
 			</button>
-		{:else if !needsInit}
+		{:else if needsFirstBuy && missingCredentials.length === 0}
+			<button
+				class="first-buy"
+				onclick={doFirstBuy}
+				disabled={firstBuying || missingCredentials.length > 0 || suggestedFirstBuy < 5}
+				class:loading={firstBuying}
+				title="首买 = 5% × 当前 USDT 余额 (PR5 supplyRates.base=0.05, minBuyAbsolute=$5 兜底). 显式 manual_buy, 走 backend computeBuyAmount 算实际金额"
+			>
+				{firstBuying ? '⏳ 首买中…' : `🎯 首买 $${suggestedFirstBuy.toFixed(0)} (5% × 余额)`}
+			</button>
+		{:else if !needsInit && !needsFirstBuy}
 			<button
 				class="pause-toggle"
 				class:is-paused={paused}
 				onclick={() => sendControl(paused ? 'resume' : 'pause')}
-				title={paused ? 'V6 监控已暂停, 不响应 ticker' : 'V6 监控活跃, 跌 5% 触发加码 / 涨 50% 触发分批回本'}
+				title={paused ? 'V6 监控已暂停, 不响应 ticker' : 'V6 监控活跃, 跌 5% 触发加码 (PR4 disable sell staircase)'}
 			>
 				{#if paused}
 					▶ 启动 V6 监控
@@ -641,11 +696,13 @@
 		</button>
 		<p class="control-hint">
 			{#if needsInit}
-				👆 启动 V6 会在 OKX 下 $30 市价买单建基准价, 之后 V6 自动监控跌 5% 加码 / 涨 50% 分批回本
+				👆 启动 V6 建 round (写 dca_rounds + 设 isStarted=true, 不首买), 然后单独点 [首买] 5% × 余额建基准价. 之后 V6 自动监控跌 5% 加码
+			{:else if needsFirstBuy}
+				👆 Round 已建 (id={portfolio.currentRoundId ?? '—'}). 点 [首买] 5% × 余额 (${suggestedFirstBuy.toFixed(0)}) 在 OKX 下市价买单建基准价. 想自定义金额走 console / feishu
 			{:else if paused}
 				V6 暂停中, 不响应 ticker。点"启动"恢复自动监控
 			{:else}
-				V6 活跃中, 自动监控跌幅 / 涨幅, 触发后自动 buy/sell。安息日自动暂停
+				V6 活跃中, 自动监控跌 5% 加码 (PR4 disable sell staircase). 安息日自动暂停
 			{/if}
 		</p>
 	</section>

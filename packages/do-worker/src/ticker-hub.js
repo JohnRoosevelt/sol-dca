@@ -239,14 +239,14 @@ export class TickerHub {
 		this.channel = env.OKX_TICKER_CHANNEL || 'tickers';
 		this.publicWsUrl = env.OKX_PUBLIC_WS || 'wss://ws.okx.com:8443/ws/v5/public';
 		this.alertUrl = env.ALERT_WEBHOOK_URL || '';
+		// PR-Alarm (2026-06-08): Alarm 叫醒时如果 isTrading=true (上一个 decide 还没跑完), 跳过
+		this._alarmTickRunning = false;
 
 		// 内存状态 (不持久化 / 不需要 FIFO 限的)
 		/** @type {any} */
 		this.portfolio = null;
 		this.isPaused = false;
 		// PR5: 硬启动开关 (策略层) — 跟 OKX WS 推送 (传输层) 完全独立
-		//   isStarted=false 时 broadcast ticker 给 browser (实时价格显示) 但跳过 decide()
-		//   init_dca → isStarted=true; close_round / max_loss 触发 → isStarted=false
 		this.isStarted = false;
 		// PR5: 4 个护栏的运行时状态
 		this.consecutiveFailures = 0; // circuit_breaker 计数
@@ -281,12 +281,164 @@ export class TickerHub {
 	}
 
 	/**
-	 * 启动：读 portfolio → 启 OKX WS → 启心跳
+	 * 启动：读 portfolio → 启 OKX WS → 启心跳 → 设 Alarm
 	 */
 	async initialize() {
 		await this.loadPortfolio();
 		this.startHeartbeat();
 		this.connectOkx();
+		// PR-Alarm (2026-06-08): 初始 Alarm — DO 休眠后每 60s 叫醒一次维持 24/7 监控
+		await this.setAlarm();
+	}
+
+	/**
+	 * 设下次 Alarm (60s 后叫醒)
+	 * alarmFired 后 DO 重启, initialize() 会重新设 alarm — 但这里也设一次作双重保险
+	 */
+	async setAlarm() {
+		await this.state.storage.setAlarm(Date.now() + 60_000);
+	}
+
+	/**
+	 * PR-Alarm (2026-06-08): Alarm 触发时执行的监控周期
+	 *   1. 重新连 OKX WS (页面没开时 DO 休眠, OKX WS 已断)
+	 *   2. 等一条 ticker (拿最新价格)
+	 *   3. 如果 isStarted=true → 跑一次完整 decide 决策 (护栏检查 + decide + 执行)
+	 *   4. 设下次 alarm
+	 *
+	 * 防御:
+	 *   - _alarmTickRunning: 防止 alarm 重叠 (alarm 间隔 60s > executeBuy 典型时长 ~1s, 保守加锁)
+	 *   - isTrading: 同 decide() 里的 in-flight lock, 防止并发 decide
+	 *   - 不在这里发 browser 广播 (没人开页面), 只写 storage + 发飞书 alert
+	 */
+	async alarmTick() {
+		if (this._alarmTickRunning) {
+			console.log('[TickerHub] alarmTick skipped: previous still running');
+			await this.setAlarm();
+			return;
+		}
+		this._alarmTickRunning = true;
+		try {
+			// 1) reconnect OKX WS (页面没开时已断)
+			this.connectOkx();
+
+			// 2) 等一条 ticker (最多 5s timeout — alarm 每 60s 一次, 5s wait 够用)
+			const tickerTimeout = 5_000;
+			const deadline = Date.now() + tickerTimeout;
+			await new Promise((resolve) => {
+				const check = () => {
+					if (Date.now() >= deadline) { resolve(); return; }
+					if (this.lastTickerPrice > 0 && this.lastTickerAt > 0) { resolve(); return; }
+					setTimeout(check, 200);
+				};
+				check();
+			});
+
+			if (!this.isStarted || !this.portfolio || this.lastTickerPrice <= 0) {
+				console.log('[TickerHub] alarmTick: not started or no ticker, skip decide');
+				await this.setAlarm();
+				return;
+			}
+
+			// 3) 同 decide() 里的 isTrading in-flight lock
+			if (this.isTrading) {
+				console.log('[TickerHub] alarmTick skipped: isTrading=true (previous buy/sell still in flight)');
+				await this.setAlarm();
+				return;
+			}
+			this.isTrading = true;
+
+			try {
+				// 安息日检查
+				if (isSabbath()) {
+					console.log('[TickerHub] alarmTick: sabbath, skip decide');
+					await this.setAlarm();
+					return;
+				}
+
+				// max_loss 护栏检查 (同 handleTicker)
+				const currentValue = this.portfolio.usdtBalance + this.portfolio.solHolding * this.lastTickerPrice;
+				if (this.peakValue > 0 && currentValue <= this.peakValue * (1 + SAFEGUARD_CONFIG.maxLossPct)) {
+					const drawdownPct = (this.peakValue - currentValue) / this.peakValue;
+					console.log(
+						`[TickerHub] alarmTick sg_max_loss: drawdown=${(drawdownPct * 100).toFixed(2)}% ≤ ${(SAFEGUARD_CONFIG.maxLossPct * 100).toFixed(0)}%, isStarted=false`
+					);
+					this.isStarted = false;
+					await this.persistPortfolio();
+					this.sendAlertSafe(
+						'critical',
+						'MAX_LOSS triggered (alarm)',
+						`峰值回撤 ${(drawdownPct * 100).toFixed(2)}% ≤ ${(SAFEGUARD_CONFIG.maxLossPct * 100).toFixed(0)}%, 已暂停策略 (持仓保留)`
+					);
+					await this.setAlarm();
+					return;
+				}
+
+				// 跑 decide
+				const todayMonthKey = MONTH_KEY_FMT(new Date());
+				maybeResetMonth(this.portfolio, todayMonthKey);
+				const tickerSnapshot = {
+					last: this.lastTickerPrice,
+					open24h: this.lastTickerPrice, // alarm tick 用 last 价作 open24h 近似
+					ts: Math.floor(Date.now() / 1000)
+				};
+				const decision = decide(tickerSnapshot, this.portfolio, todayMonthKey);
+
+				if (decision.action === 'buy' && decision.amountUsdt >= 1) {
+					const signal = {
+						id: crypto.randomUUID(),
+						price: this.lastTickerPrice,
+						action: 'buy',
+						reason: `[alarm] ${decision.reason}`,
+						drawdown_pct: decision.drawdownPct ?? null,
+						profit_pct: null,
+						usdt_after: this.portfolio.usdtBalance,
+						sol_after: this.portfolio.solHolding,
+						mode: this.mode,
+						created_at: new Date().toISOString()
+					};
+					await this.persistSignal(signal);
+					this.sendAlertSafe(
+						'info',
+						'BUY executed (alarm)',
+						`[alarm] ${decision.reason} @ $${this.lastTickerPrice.toFixed(2)} — $${decision.amountUsdt}`
+					);
+					await this.executeBuy(decision, signal);
+				} else if (decision.action === 'sell' && decision.amountSol >= 0.001) {
+					const signal = {
+						id: crypto.randomUUID(),
+						price: this.lastTickerPrice,
+						action: 'sell',
+						reason: `[alarm] ${decision.reason}`,
+						drawdown_pct: null,
+						profit_pct: decision.profitPct ?? null,
+						usdt_after: this.portfolio.usdtBalance,
+						sol_after: this.portfolio.solHolding,
+						mode: this.mode,
+						created_at: new Date().toISOString()
+					};
+					await this.persistSignal(signal);
+					this.sendAlertSafe(
+						'info',
+						'SELL executed (alarm)',
+						`[alarm] ${decision.reason} @ $${this.lastTickerPrice.toFixed(2)} — ${decision.amountSol} SOL`
+					);
+					await this.executeSell(decision, signal);
+				} else {
+					// hold / skip — 不触发任何交易, 只 log
+					if (Date.now() % (5 * 60_000) < 1_000) { // 大约每 5 分钟 log 一次 (避免刷屏)
+						console.log(`[TickerHub] alarmTick hold: ${decision.reason}`);
+					}
+				}
+			} finally {
+				this.isTrading = false;
+			}
+		} catch (err) {
+			console.error('[TickerHub] alarmTick error:', err);
+		} finally {
+			this._alarmTickRunning = false;
+			await this.setAlarm();
+		}
 	}
 
 	/**
@@ -1131,6 +1283,13 @@ export class TickerHub {
 	async fetch(request) {
 		const url = new URL(request.url);
 		const path = url.pathname;
+
+		// PR-Alarm (2026-06-08): Cloudflare Alarm 叫醒 DO — 不带 HTTP 请求体
+		//   Alarm 每 60s 触发一次, 让 DO 在没人开页面的情况下仍维持 OKX WS + 策略监控
+		if (request.headers.get('x-durable-od-alarm') === 'true') {
+			await this.alarmTick();
+			return new Response(null, { status: 204 });
+		}
 
 		// 懒初始化
 		if (!this.portfolio) {
