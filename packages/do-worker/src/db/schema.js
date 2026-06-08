@@ -17,6 +17,7 @@ export const portfolioState = sqliteTable('portfolio_state', {
 	solHolding: real('sol_holding').notNull().default(0),
 	avgBuyPrice: real('avg_buy_price'),
 	lastBuyPrice: real('last_buy_price'),
+	peakPrice: real('peak_price'), // P0-2: 建仓以来最高价 (decide() 用它算 drawdownPct, 高位建仓后熊市初期不漏 DCA)
 	totalSpent: real('total_spent').notNull().default(0),
 	totalSold: real('total_sold').notNull().default(0),
 	realizedPnL: real('realized_pnl').notNull().default(0),
