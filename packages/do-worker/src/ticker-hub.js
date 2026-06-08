@@ -47,9 +47,18 @@ const HOLD_HEARTBEAT_MS = 30_000;
 const HOLD_PRICE_CHANGE_PCT = 0.2;
 
 // DO storage schema (跟 D1 portfolio_state / signals / trades 三张表完全对齐, 字段/名字/snake_case 一致)
-//   单一 source of truth: packages/do-worker/src/db/schema.js (Drizzle) → drizzle/migrations/0000_initial.sql → D1
+//   单一 source of truth: packages/do-worker/src/db/schema.js (Drizzle) → drizzle/migrations/ → D1
 //   worker raw SQL 写 DO + D1 都按这个 schema 走, 避免 silent drift (2026-06-07 fix)
+//
+// P0-3 fix (2026-06-08): 删 destructive schema rebuild. DO 启动不再 DROP 老表, 改为纯 idempotent
+//   CREATE TABLE IF NOT EXISTS. 历史 trades / signals 保留. _migrations 跟踪表记录已应用的
+//   migration 文件 (后续 PR5 加 dca_rounds 表时按序应用, 不再清历史).
 const SQL_SCHEMA = `
+	CREATE TABLE IF NOT EXISTS _migrations (
+		id INTEGER PRIMARY KEY,
+		name TEXT NOT NULL UNIQUE,
+		applied_at TEXT NOT NULL
+	);
 	CREATE TABLE IF NOT EXISTS portfolio_state (
 		id INTEGER PRIMARY KEY,
 		usdt_balance REAL NOT NULL DEFAULT 0,
@@ -104,28 +113,10 @@ const SQL_SCHEMA = `
 	);
 `;
 
-// 兼容老 DO storage — user 要求 destructive 重建, 不 ALTER 加列
-// DROP + CREATE 三个表 (portfolio_state / signals / trades), 历史数据直接清掉
-// (2026-06-07 决策: 不需要历史 trades, 重建更稳, 避免 schema drift)
-const SCHEMA_REBUILD = [
-	'DROP TABLE IF EXISTS portfolio_state',
-	'DROP TABLE IF EXISTS signals',
-	'DROP TABLE IF EXISTS trades',
-	'DROP TABLE IF EXISTS alert_cooldowns'
-];
-
 /** @param {any} storage DO SQLite storage */
 export function applyMigrations(storage) {
-	// Destructive 重建: 先 DROP 老表 (IF EXISTS), 让后面 SQL_SCHEMA 里的 CREATE TABLE IF NOT EXISTS
-	// 用新 schema 建 — 老 schema 数据全部清空 (2026-06-07 user 决策, 不需要历史)
-	for (const sql of SCHEMA_REBUILD) {
-		try {
-			storage.sql.exec(sql);
-		} catch (err) {
-			console.error('[TickerHub] DROP failed:', sql, err);
-		}
-	}
-	// 跑 SQL_SCHEMA (CREATE TABLE IF NOT EXISTS) — 现在 IF NOT EXISTS 触发新表建立
+	// P0-3 fix (2026-06-08): 纯 idempotent schema — 只跑 CREATE TABLE IF NOT EXISTS,
+	//   不再 DROP 任何表. 历史 trades / signals 保留. _migrations 表跟踪已应用的 migration.
 	try {
 		storage.sql.exec(SQL_SCHEMA);
 	} catch (err) {
