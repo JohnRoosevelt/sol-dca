@@ -48,23 +48,18 @@ const TRADE_FIFO_LIMIT = 30;
 const HOLD_HEARTBEAT_MS = 30_000;
 const HOLD_PRICE_CHANGE_PCT = 0.2;
 
-// DO storage schema (跟 D1 portfolio_state / signals / trades 三张表完全对齐, 字段/名字/snake_case 一致)
-//   单一 source of truth: packages/do-worker/src/db/schema.js (Drizzle) → drizzle/migrations/ → D1
-//   worker raw SQL 写 DO + D1 都按这个 schema 走, 避免 silent drift (2026-06-07 fix)
+// DO storage schema (DO 自带 permanent storage, 单一 source of truth)
+//   PR6 (2026-06-08): 删 D1/Drizzle (drizzle/ 整目录 + src/db/schema.js + drizzle-orm dep + wrangler.toml D1 binding)
+//   applyMigrations: DESTRUCTIVE WIPE + FRESH INIT — DROP 6 表 (idempotent IF EXISTS), 再用 SQL_SCHEMA 重建
+//   - 老 DO 实例 (PR2 / PR5 状态) 部署后: 数据全清, schema 立刻对齐最新版
+//   - 没有 _migrations tracking 表, 没有 ALTER TABLE, 没有 hasColumn 防御性读
+//   - 重复 deploy 完全 idempotent (DROP IF EXISTS + CREATE IF NOT EXISTS)
 //
-// P0-3 fix (2026-06-08): 删 destructive schema rebuild. DO 启动不再 DROP 老表, 改为纯 idempotent
-//   CREATE TABLE IF NOT EXISTS. 历史 trades / signals 保留. _migrations 跟踪表记录已应用的
-//   migration 文件 (后续 PR5 加 dca_rounds 表时按序应用, 不再清历史).
-//
-// PR5 (2026-06-08): 加 dca_rounds 表 + portfolio_state.current_round_id 列
-//   - dca_rounds: 21 字段, 记录每轮 DCA 的生命周期 (start/end/initial/final/P&L)
-//   - portfolio_state.current_round_id: 当前活跃 round 的外键, init_dca 写, close_round 清
+// 设计原则:
+//   - 简单 > 复杂: 一个权威 SQL_SCHEMA, 跟代码同步演进, 部署即对齐
+//   - 老数据丢: user 2026-06-08 09:38 决策变更, 已知 + 接受 (前 PR2-PR5 没积累关键数据, demo/live 都是空的)
+//   - 防御性读 / 写 列: 不需要, 部署后 schema 一定对齐
 const SQL_SCHEMA = `
-	CREATE TABLE IF NOT EXISTS _migrations (
-		id INTEGER PRIMARY KEY,
-		name TEXT NOT NULL UNIQUE,
-		applied_at TEXT NOT NULL
-	);
 	CREATE TABLE IF NOT EXISTS portfolio_state (
 		id INTEGER PRIMARY KEY,
 		usdt_balance REAL NOT NULL DEFAULT 0,
@@ -114,7 +109,9 @@ const SQL_SCHEMA = `
 		created_at TEXT NOT NULL
 	);
 	-- PR5: DCA 投资轮次 — 记录每轮生命周期 + P&L
-	--   字段对照 Drizzle schema (packages/do-worker/src/db/schema.js)
+	--   21 字段: roundUuid/startedAt/endedAt/startPrice/endPrice/initialUsdt/initialSol/finalUsdt/finalSol/
+	--            totalSpent/totalSold/totalBuys/totalSells/realizedPnL/unrealizedPnL/totalReturnPct/
+	--            status/closeReason/mode/notes/updatedAt
 	CREATE TABLE IF NOT EXISTS dca_rounds (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		round_uuid TEXT NOT NULL UNIQUE,
@@ -149,14 +146,65 @@ const SQL_SCHEMA = `
 	);
 `;
 
-/** @param {any} storage DO SQLite storage */
-export function applyMigrations(storage) {
-	// P0-3 fix (2026-06-08): 纯 idempotent schema — 只跑 CREATE TABLE IF NOT EXISTS,
-	//   不再 DROP 任何表. 历史 trades / signals 保留. _migrations 表跟踪已应用的 migration.
+/**
+ * PR6 (2026-06-08) — DESTRUCTIVE WIPE + FRESH INIT (env-gated)
+ *
+ * @param {any} storage DO SQLite storage
+ * @param {any} [env] Worker env (used to read FORCE_SCHEMA_RESET)
+ *
+ * Behavior:
+ *   - If env.FORCE_SCHEMA_RESET === '1' | 'true': DROP all 6 tables + run SQL_SCHEMA (idempotent CREATE IF NOT EXISTS).
+ *     One-time operator trigger, used on first deploy after PR6 to clear stale schemas (老 PR2/PR5 状态).
+ *   - Otherwise: just run SQL_SCHEMA (idempotent CREATE IF NOT EXISTS, data preserved).
+ *     Standard "subsequent deploy" behavior.
+ *
+ * No _migrations tracking, no ALTER TABLE, no defensive load/persist.
+ * Single source of truth: SQL_SCHEMA constant. Schema evolves with code.
+ *
+ * Operator workflow:
+ *   1. wrangler secret put FORCE_SCHEMA_RESET=1   (or set in wrangler.toml [vars])
+ *   2. wrangler deploy  → wipe + reinit on first init
+ *   3. wrangler secret put FORCE_SCHEMA_RESET=0   (or remove from wrangler.toml)
+ *   4. subsequent deploys are idempotent, data preserved
+ */
+export function applyMigrations(storage, env) {
+	const dropStatements = [
+		'DROP TABLE IF EXISTS dca_rounds',
+		'DROP TABLE IF EXISTS trades',
+		'DROP TABLE IF EXISTS signals',
+		'DROP TABLE IF EXISTS portfolio_state',
+		'DROP TABLE IF EXISTS alert_cooldowns',
+		// _migrations 表是 PR3 残留, 跟"no migration tracking"设计冲突.
+		// 删掉确保 FORCE_SCHEMA_RESET 后彻底干净 (PR3-era _migrations 也 wipe)
+		'DROP TABLE IF EXISTS _migrations'
+	];
+
+	const forceReset = env?.FORCE_SCHEMA_RESET === '1' || env?.FORCE_SCHEMA_RESET === 'true';
+
+	if (forceReset) {
+		console.log('[TickerHub] applyMigrations: FORCE_SCHEMA_RESET=1, dropping all tables');
+		for (const sql of dropStatements) {
+			try {
+				storage.sql.exec(sql);
+			} catch (err) {
+				console.warn('[TickerHub] DROP failed (continuing):', sql, err.message);
+			}
+		}
+	} else {
+		console.log('[TickerHub] applyMigrations: idempotent (no wipe)');
+	}
+
 	try {
 		storage.sql.exec(SQL_SCHEMA);
 	} catch (err) {
-		console.error('[TickerHub] CREATE TABLE failed:', err);
+		console.error('[TickerHub] SQL_SCHEMA failed:', err);
+		throw err;
+	}
+
+	if (forceReset) {
+		console.log('[TickerHub] applyMigrations: wiped + reinit complete');
+	} else {
+		console.log('[TickerHub] applyMigrations: idempotent reinit complete');
 	}
 }
 
@@ -169,7 +217,8 @@ export class TickerHub {
 		this.state = state;
 		this.env = env;
 		// 兼容老 DO storage schema: 加新字段
-		applyMigrations(state.storage);
+		// PR6: 传 env 让 applyMigrations 读 FORCE_SCHEMA_RESET 控制 wipe
+		applyMigrations(state.storage, env);
 		// 从 DO name 推 mode: 'sol-usdt-demo' → 'demo', 'sol-usdt-live' → 'live'
 		//   index.js 路由会按 ?mode=... 选不同 DO name
 		//   name 为 null (没经过 idFromName) → 兜底 demo
@@ -296,7 +345,7 @@ export class TickerHub {
 	}
 
 	/**
-	 * 把 DO storage row (snake_case) 跟 D1 row 都映射到 portfolio 对象
+	 * 把 DO storage row (snake_case) 映射到 portfolio 对象
 	 */
 	rowToPortfolio(row) {
 		// monthSpent 反序列化: 从 current_month_spent + current_month_reset 还原
@@ -311,7 +360,7 @@ export class TickerHub {
 			avgBuyPrice: row.avg_buy_price != null ? row.avg_buy_price : null,
 			realizedPnL: row.realized_pnl || 0,
 			lastBuyPrice: row.last_buy_price,
-			peakPrice: row.peak_price != null ? row.peak_price : null, // P0-2: 老 row 无此列 → null (decide() 会 fallback 到 lastBuyPrice)
+			peakPrice: row.peak_price != null ? row.peak_price : null, // P0-2: 高位建仓后熊市初期不漏 DCA
 			totalSpent: row.total_spent,
 			totalSoldUSDT: row.total_sold || 0,
 			consecutiveDcaBuys: row.consecutive_dca_buys || 0,
@@ -320,7 +369,7 @@ export class TickerHub {
 			sellStairsTriggered: new Set(
 				JSON.parse(row.sell_stairs_triggered || '[]')
 			),
-			currentRoundId: row.current_round_id != null ? row.current_round_id : null // PR5: 老 row 无此列 → null
+			currentRoundId: row.current_round_id != null ? row.current_round_id : null // PR5: dca_rounds 外键
 		};
 	}
 
@@ -330,7 +379,7 @@ export class TickerHub {
 	async persistPortfolio() {
 		if (!this.portfolio) return;
 		const p = this.portfolio;
-		// demo 跟 live 各自用独立 row id (1 / 2), D1 schema 不加 mode 列
+		// demo 跟 live 各自用独立 row id (1 / 2)
 		const portfolioRowId = this.mode === 'live' ? 2 : 1;
 		// monthSpentTotal 只算 currentMonthReset 月份 (跨月重置时其他月份不存, 避免数据膨胀)
 		const monthSpentTotal = p.monthSpent.get(p.currentMonthReset) || 0;
