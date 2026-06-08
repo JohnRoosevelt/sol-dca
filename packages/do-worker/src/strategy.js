@@ -18,6 +18,7 @@
  * @property {number|null} avgBuyPrice 加权平均买入价 (没持仓/null)
  * @property {number} realizedPnL 累计已实现盈亏 (分批回本 + 手动卖出)
  * @property {number|null} lastBuyPrice 最近一笔买入价 (lastBuyPrice 跟 avgBuyPrice 不同)
+ * @property {number|null} peakPrice 建仓以来的最高价 (P0-2 fix: 高位建仓后用 peak 算 drawdown, 不漏 DCA)
  * @property {number} totalSpent
  * @property {number} [totalSoldUSDT]
  * @property {number} consecutiveDcaBuys
@@ -142,7 +143,14 @@ export function decide(ticker, state, todayMonthKey) {
 		};
 	}
 
-	const drawdownPct = ((state.lastBuyPrice - ticker.last) / state.lastBuyPrice) * 100;
+	// P0-2: 跌幅参考价用 peakPrice (建仓以来最高), 不是 lastBuyPrice
+	//   高位建仓后熊市初期, lastBuyPrice 已接近 peak, 用 lastBuyPrice 算跌幅可能不到 5%, 漏 DCA
+	//   例: peak=100, lastBuyPrice=95 (建仓后小跌 5%), tick.last=91
+	//       新 (peak): (100-91)/100 = 9% 触发 5% DCA ✓
+	//       旧 (last): (95-91)/95 = 4.2% < 5% 漏掉 DCA — 这就是 P0-2 bug
+	//   冷启动: peakPrice=null, fallback 到 lastBuyPrice (跟旧逻辑等价)
+	const refPrice = state.peakPrice ?? state.lastBuyPrice;
+	const drawdownPct = ((refPrice - ticker.last) / refPrice) * 100;
 	let buyAmount = 0;
 	let holdReason = null;
 
@@ -200,6 +208,7 @@ export function maybeResetMonth(state, todayMonthKey) {
  * 应用 buy 后的状态变更（in-memory）
  * 加权平均价公式: newAvg = (oldAvg * oldQty + newPrice * newQty) / (oldQty + newQty)
  *   第一次买: avgBuyPrice = price (冷启动)
+ *   P0-2: peakPrice = max(peakPrice ?? 0, price) — 高位建仓后熊市初期用 peak 算 drawdown, 不漏 DCA
  * @param {PortfolioState} state
  * @param {number} amountUsdt
  * @param {number} amountSol
@@ -211,6 +220,9 @@ export function applyBuy(state, amountUsdt, amountSol, price, todayMonthKey) {
 	// 截到 6 位，防止 OKX 精度(8位) vs DO state 累积误差
 	state.solHolding = Math.max(0, Math.floor((state.solHolding + amountSol) * 1000000) / 1000000);
 	state.lastBuyPrice = price;
+	// P0-2: 跟踪建仓以来最高价 — decide() 用它算 drawdownPct 而不是 lastBuyPrice
+	//   peakPrice 只增不减 (熊市不重置), 所以建仓后涨到更高再跌也能正确算跌
+	state.peakPrice = Math.max(state.peakPrice ?? 0, price);
 	// 加权平均价 — 含历史持仓成本
 	if (state.avgBuyPrice == null || state.solHolding - amountSol < 0.0001) {
 		// 冷启动 / 之前已清仓: 以本次价格作 avg

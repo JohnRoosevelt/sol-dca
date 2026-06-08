@@ -56,6 +56,7 @@ const SQL_SCHEMA = `
 		sol_holding REAL NOT NULL DEFAULT 0,
 		avg_buy_price REAL,
 		last_buy_price REAL,
+		peak_price REAL,
 		total_spent REAL NOT NULL DEFAULT 0,
 		total_sold REAL NOT NULL DEFAULT 0,
 		realized_pnl REAL NOT NULL DEFAULT 0,
@@ -243,6 +244,7 @@ export class TickerHub {
 			avgBuyPrice: null,
 			realizedPnL: 0,
 			lastBuyPrice: null,
+			peakPrice: null, // P0-2: 跟 lastBuyPrice 同步, 首次 buy 时由 applyBuy 设为买价
 			totalSpent: 0,
 			totalSoldUSDT: 0,
 			consecutiveDcaBuys: 0,
@@ -268,6 +270,7 @@ export class TickerHub {
 			avgBuyPrice: row.avg_buy_price != null ? row.avg_buy_price : null,
 			realizedPnL: row.realized_pnl || 0,
 			lastBuyPrice: row.last_buy_price,
+			peakPrice: row.peak_price != null ? row.peak_price : null, // P0-2: 老 row 无此列 → null (decide() 会 fallback 到 lastBuyPrice)
 			totalSpent: row.total_spent,
 			totalSoldUSDT: row.total_sold || 0,
 			consecutiveDcaBuys: row.consecutive_dca_buys || 0,
@@ -296,15 +299,16 @@ export class TickerHub {
 		try {
 			this.state.storage.sql.exec(
 				`INSERT OR REPLACE INTO portfolio_state
-				 (id, usdt_balance, sol_holding, avg_buy_price, last_buy_price, total_spent, total_sold,
+				 (id, usdt_balance, sol_holding, avg_buy_price, last_buy_price, peak_price, total_spent, total_sold,
 				  realized_pnl, current_month_spent, current_month_reset, consecutive_dca_buys,
 				  sell_stairs_triggered, updated_at)
-				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				portfolioRowId,
 				p.usdtBalance,
 				p.solHolding,
 				p.avgBuyPrice,
 				p.lastBuyPrice,
+				p.peakPrice, // P0-2
 				p.totalSpent,
 				p.totalSoldUSDT || 0,
 				p.realizedPnL || 0,
@@ -375,6 +379,16 @@ export class TickerHub {
 			low24h: parseFloat(d.low24h),
 			ts: parseInt(d.ts)
 		});
+
+		// P0-2: 持续跟踪 peakPrice (建仓以来最高价) — 不只 buy 时更新, 每个 ticker 都 max
+		//   已建仓后 (lastBuyPrice != null) 才有意义, 否则冷启动阶段 peakPrice=null 跳过
+		//   这里更新不持久化, 由 decide() / executeBuy / syncBalanceFromOkx 触发的 persistPortfolio 顺带写盘
+		if (this.portfolio && this.portfolio.lastBuyPrice != null) {
+			const newPeak = Math.max(this.portfolio.peakPrice ?? 0, this.lastTickerPrice);
+			if (newPeak !== this.portfolio.peakPrice) {
+				this.portfolio.peakPrice = newPeak;
+			}
+		}
 
 		// 2) 调策略
 		if (this.isPaused) return;
@@ -968,11 +982,12 @@ export class TickerHub {
 			this.lastHoldSignalPrice = 0;
 			// 如果 sell 失败，不强制清 solHolding — 让 loadPortfolio() 拉到的 OKX 真实余额生效
 			// 如果 sell 成功，loadPortfolio() 会用 syncBalanceFromOkx() 更新余额，两者都对
-			if (this.portfolio) {
+if (this.portfolio) {
 				this.portfolio = {
 					...this.portfolio,
 					avgBuyPrice: null,
 					lastBuyPrice: null,
+					peakPrice: null, // P0-2: 跟 lastBuyPrice 同步 reset, 下次 DCA 启动时由 applyBuy 重建
 					totalSpent: 0,
 					totalSoldUSDT: 0,
 					realizedPnL: 0,
@@ -981,7 +996,7 @@ export class TickerHub {
 					monthSpent: new Map(),
 					currentMonthReset: MONTH_KEY_FMT(new Date())
 				};
-				}
+			}
 				await this.persistPortfolio();
 				this.broadcastBrowser({
 					type: 'portfolio_reset',
@@ -1106,6 +1121,7 @@ export class TickerHub {
 			realizedPnL,
 			unrealizedPnL,
 			lastBuyPrice: p.lastBuyPrice,
+			peakPrice: p.peakPrice, // P0-2: 前端可见的"建仓以来最高价"参考
 			totalSpent: p.totalSpent,
 			totalSoldUSDT: p.totalSoldUSDT || 0,
 			consecutiveDcaBuys: p.consecutiveDcaBuys,
