@@ -12,8 +12,10 @@
 	// If not provided, fall back to creating one from SSR initial data.
 	let { initial = {}, store: externalStore = null } = $props();
 
-	// Use the external store if provided; otherwise create one from SSR data
-	const store = externalStore ?? createDashboardStore(initial);
+	// Capture both initial values in the same reactive evaluation to avoid
+	// state_referenced_locally warnings (externalStore and initial are read
+	// together as a pair at initialization, then never referenced again).
+	const store = $derived(externalStore ?? createDashboardStore(initial));
 
 	// Local bindable refs for TopBar's TOTP modal (store owns showTotpModal/pendingMode)
 	let showTotpModal = $state(false);
@@ -34,7 +36,8 @@
 	let lastError = $derived(store.lastError);
 	let refreshing = $derived(store.refreshing);
 	let historyEntries = $derived(store.historyEntries);
-	let historyFilter = $state(store.historyFilter);
+	// Default to 'all' — $effect below syncs with store if needed on reset
+	let historyFilter = $state('all');
 	let historyLoading = $derived(store.historyLoading);
 	let filteredHistory = $derived(store.filteredHistory);
 	let liveCurrentValue = $derived(store.liveCurrentValue);

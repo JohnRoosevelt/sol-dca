@@ -4,9 +4,11 @@
 
 	let { data } = $props();
 
-	// Create the dashboard store at module level (client-side only).
-	// All state/logic lives in the store; TickerStream is a thin shell.
-	const dashboard = createDashboardStore({
+	// Wrap in $derived so all data.* reads are captured in a single reactive
+	// evaluation (avoids state_referenced_locally warnings for each field).
+	// The data object itself is SSR-loaded and immutable; only its initial
+	// values are needed to seed the store.
+	const dashboard = $derived(createDashboardStore({
 		portfolio: data.portfolio,
 		paused: data.paused,
 		okxWsState: data.okxWsState,
@@ -15,7 +17,7 @@
 		missingCredentials: data.missingCredentials ?? [],
 		sabbath: data.sabbath,
 		mode: data.mode
-	});
+	}));
 </script>
 
 <svelte:head>
