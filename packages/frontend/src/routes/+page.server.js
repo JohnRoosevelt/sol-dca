@@ -1,5 +1,3 @@
-import { error } from '@sveltejs/kit';
-
 /**
  * Server load — SSR 拿初始 state
  * 浏览器后由 WebSocket 接管实时推流（直连 worker URL，不走 Pages）
@@ -21,12 +19,37 @@ export async function load({ platform, fetch, cookies }) {
 	}
 	const cookieMode = cookies.get('sol-dca-mode');
 	const mode = cookieMode === 'live' ? 'live' : 'demo';
-	const res = await platform.env.SOL_DCA_WORKER.fetch(
-		`https://do/state?mode=${mode}`,
-		{ method: 'GET' }
-	);
+	let res;
+	try {
+		res = await platform.env.SOL_DCA_WORKER.fetch(
+			`https://do/state?mode=${mode}`,
+			{ method: 'GET' }
+		);
+	} catch (err) {
+		return {
+			portfolio: null,
+			paused: false,
+			okxWsState: 'unknown',
+			lastTickerPrice: 0,
+			missingCredentials: [],
+			sabbath: false,
+			ts: Date.now(),
+			mode,
+			warning: `worker fetch failed: ${err?.message ?? err}`
+		};
+	}
 	if (!res.ok) {
-		throw error(500, `worker /state returned ${res.status}`);
+		return {
+			portfolio: null,
+			paused: false,
+			okxWsState: 'error',
+			lastTickerPrice: 0,
+			missingCredentials: [],
+			sabbath: false,
+			ts: Date.now(),
+			mode,
+			warning: `worker /state returned ${res.status}`
+		};
 	}
 	const data = await res.json();
 	return {

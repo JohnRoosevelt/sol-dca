@@ -32,6 +32,17 @@ import {
 import { isSabbath } from './sabbath.js';
 import { sendAlert } from './alert.js';
 
+// 本地化时间戳日志 — 覆盖 console 方法，所有日志加北京时间标记
+(() => {
+	const ts = () => new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+	const origLog = console.log.bind(console);
+	const origWarn = console.warn.bind(console);
+	const origError = console.error.bind(console);
+	console.log = (...a) => origLog(`[${ts()}]`, ...a);
+	console.warn = (...a) => origWarn(`[${ts()}]`, ...a);
+	console.error = (...a) => origError(`[${ts()}]`, ...a);
+})();
+
 const TICKER_TIMEOUT_MS = 30_000; // ticker 30s 没收到 = 静默
 const WS_RECONNECT_MS = 5_000; // OKX WS 断开 5s 后重连
 // (已删 BALANCE_SYNC_MS — balance sync 不再后台跑, 见 loadPortfolio 注释)
@@ -154,27 +165,13 @@ const SQL_SCHEMA = `
 `;
 
 /**
- * PR6 (2026-06-08) — DESTRUCTIVE WIPE + FRESH INIT (env-gated)
- *
- * @param {any} storage DO SQLite storage
- * @param {any} [env] Worker env (used to read FORCE_SCHEMA_RESET)
- *
- * Behavior:
- *   - If env.FORCE_SCHEMA_RESET === '1' | 'true': DROP all 6 tables + run SQL_SCHEMA (idempotent CREATE IF NOT EXISTS).
- *     One-time operator trigger, used on first deploy after PR6 to clear stale schemas (老 PR2/PR5 状态).
- *   - Otherwise: just run SQL_SCHEMA (idempotent CREATE IF NOT EXISTS, data preserved).
- *     Standard "subsequent deploy" behavior.
- *
- * No _migrations tracking, no ALTER TABLE, no defensive load/persist.
+ * 每次部署都 DROP 旧表 + 用最新 SQL_SCHEMA 重建。
+ * 数据会丢失，但 loadPortfolio 会从 OKX 重拉余额。
  * Single source of truth: SQL_SCHEMA constant. Schema evolves with code.
  *
- * Operator workflow:
- *   1. wrangler secret put FORCE_SCHEMA_RESET=1   (or set in wrangler.toml [vars])
- *   2. wrangler deploy  → wipe + reinit on first init
- *   3. wrangler secret put FORCE_SCHEMA_RESET=0   (or remove from wrangler.toml)
- *   4. subsequent deploys are idempotent, data preserved
+ * @param {any} storage DO SQLite storage
  */
-export function applyMigrations(storage, env) {
+export function applyMigrations(storage) {
 	const dropStatements = [
 		'DROP TABLE IF EXISTS dca_rounds',
 		'DROP TABLE IF EXISTS trades',
@@ -186,19 +183,15 @@ export function applyMigrations(storage, env) {
 		'DROP TABLE IF EXISTS _migrations'
 	];
 
-	const forceReset = env?.FORCE_SCHEMA_RESET === '1' || env?.FORCE_SCHEMA_RESET === 'true';
-
-	if (forceReset) {
-		console.log('[TickerHub] applyMigrations: FORCE_SCHEMA_RESET=1, dropping all tables');
-		for (const sql of dropStatements) {
-			try {
-				storage.sql.exec(sql);
-			} catch (err) {
-				console.warn('[TickerHub] DROP failed (continuing):', sql, err.message);
-			}
+	// 总是 DROP 旧表 + 用最新 SQL_SCHEMA 重建，保证 schema 跟代码对齐
+	// 数据会丢失（portfolio/trades/signals），但 DO 重启后 loadPortfolio 会从 OKX 重拉余额
+	console.log('[TickerHub] applyMigrations: DROP all + recreate');
+	for (const sql of dropStatements) {
+		try {
+			storage.sql.exec(sql);
+		} catch (err) {
+			console.warn('[TickerHub] DROP failed (continuing):', sql, err.message);
 		}
-	} else {
-		console.log('[TickerHub] applyMigrations: idempotent (no wipe)');
 	}
 
 	try {
@@ -208,11 +201,7 @@ export function applyMigrations(storage, env) {
 		throw err;
 	}
 
-	if (forceReset) {
-		console.log('[TickerHub] applyMigrations: wiped + reinit complete');
-	} else {
-		console.log('[TickerHub] applyMigrations: idempotent reinit complete');
-	}
+	console.log('[TickerHub] applyMigrations: complete');
 }
 
 export class TickerHub {
@@ -224,8 +213,8 @@ export class TickerHub {
 		this.state = state;
 		this.env = env;
 		// 兼容老 DO storage schema: 加新字段
-		// PR6: 传 env 让 applyMigrations 读 FORCE_SCHEMA_RESET 控制 wipe
-		applyMigrations(state.storage, env);
+		// 每次部署 DROP + 重建 schema（数据从 OKX 重拉）
+		applyMigrations(state.storage);
 		// 从 DO name 推 mode: 'sol-usdt-demo' → 'demo', 'sol-usdt-live' → 'live'
 		//   index.js 路由会按 ?mode=... 选不同 DO name
 		//   name 为 null (没经过 idFromName) → 兜底 demo
@@ -241,6 +230,8 @@ export class TickerHub {
 		this.alertUrl = env.ALERT_WEBHOOK_URL || '';
 		// PR-Alarm (2026-06-08): Alarm 叫醒时如果 isTrading=true (上一个 decide 还没跑完), 跳过
 		this._alarmTickRunning = false;
+		// ticker 限流：策略决策每 3s 最多一次，省 DO 免费层请求配额
+		this._lastStrategyTickAt = 0;
 
 		// 内存状态 (不持久化 / 不需要 FIFO 限的)
 		/** @type {any} */
@@ -287,8 +278,24 @@ export class TickerHub {
 		await this.loadPortfolio();
 		this.startHeartbeat();
 		this.connectOkx();
-		// PR-Alarm (2026-06-08): 初始 Alarm — DO 休眠后每 60s 叫醒一次维持 24/7 监控
-		await this.setAlarm();
+		// PR-Alarm gate (2026-06-08, refined 2026-06-09): 24/7 alarm 只在 live + 持仓中跑
+		//   背景: 6/8 引入 PR-Alarm 让 demo 24/7 烧光 DO free tier 100K req/day
+		//   真正的 quota 雪崩根因是前端 WS reconnect 没 backoff (见 TickerStream.svelte),
+		//   alarm 不是主因, 但 demo 24/7 alarm 仍在烧, 保留作为防御
+		if (this.shouldRunAlarm()) {
+			await this.setAlarm();
+		} else {
+			await this.clearAlarm();
+			console.log(`[TickerHub] initialize: alarm gated off (mode=${this.mode}, isStarted=${this.isStarted})`);
+		}
+	}
+
+	/**
+	 * Cloudflare DO alarm handler — Alarm 触发时由 runtime 直接调用
+	 * (fetch 中 x-durable-od-alarm header 检测是 miniflare 兼容路径)
+	 */
+	async alarm() {
+		await this.alarmTick();
 	}
 
 	/**
@@ -297,6 +304,23 @@ export class TickerHub {
 	 */
 	async setAlarm() {
 		await this.state.storage.setAlarm(Date.now() + 60_000);
+	}
+
+	/**
+	 * PR-Alarm gate (2026-06-09): 24/7 alarm 只在 live + 持仓中跑
+	 *   - demo 永远不跑 (烧光 DO free tier 100K req/day, user 2026-06-09 决策)
+	 *   - live + !isStarted 也不跑 (没持仓, 跟 demo 一样省 quota)
+	 *   - live + isStarted 才跑 (护栏必须跑, 持仓是真钱)
+	 */
+	shouldRunAlarm() {
+		return this.isStarted;
+	}
+
+	/**
+	 * 清除 alarm (gate 不通过时调 — 不让 alarm 继续 60s 一次叫醒)
+	 */
+	async clearAlarm() {
+		await this.state.storage.deleteAlarm();
 	}
 
 	/**
@@ -312,6 +336,14 @@ export class TickerHub {
 	 *   - 不在这里发 browser 广播 (没人开页面), 只写 storage + 发飞书 alert
 	 */
 	async alarmTick() {
+		// PR-Alarm gate (2026-06-09): 老 DOs 可能带旧 alarm, 启动时 isStarted=true 但后续
+		//   被 closeDcaRound/reset 改成 false. top check 保证 gate 不通过时彻底清掉
+		//   (deleteAlarm), 不再 60s 一次叫醒空跑 (demo / !isStarted 都不该烧 quota)
+		if (!this.shouldRunAlarm()) {
+			await this.clearAlarm();
+			console.log(`[TickerHub] alarmTick: gate off, alarm cleared (mode=${this.mode}, isStarted=${this.isStarted})`);
+			return;
+		}
 		if (this._alarmTickRunning) {
 			console.log('[TickerHub] alarmTick skipped: previous still running');
 			await this.setAlarm();
@@ -319,6 +351,10 @@ export class TickerHub {
 		}
 		this._alarmTickRunning = true;
 		try {
+			// 0) 恢复持久化状态 (DO 回收后 alarm 唤醒时 isStarted/currentRoundId 丢失)
+			if (!this.portfolio) {
+				await this.loadPortfolio();
+			}
 			// 1) reconnect OKX WS (页面没开时已断)
 			this.connectOkx();
 
@@ -677,6 +713,13 @@ export class TickerHub {
 			}
 		}
 
+		// 限流：OKX ticker ~10次/秒，策略决策不需要这么高频
+		// 每 3/5 秒跑一次 decide() 足够（价格 3/5s 内变化不会触发多级加码跳变）
+		// 省 DO 免费层请求配额：~86万次/天 → ~2.8万次/天
+		const now = Date.now();
+		if (this._lastStrategyTickAt && now - this._lastStrategyTickAt < 5000) return;
+		this._lastStrategyTickAt = now;
+
 		// 2) 调策略
 		if (this.isPaused) return;
 		if (isSabbath()) return;
@@ -879,7 +922,7 @@ export class TickerHub {
 			const solSold = realFillSz > 0 ? realFillSz : decision.amountSol;
 			const usdtGot = +(solSold * realAvgPx).toFixed(2);
 
-			applySell(this.portfolio, usdtGot, solSold, decision.stairIdx);
+			applySell(this.portfolio, usdtGot, solSold, realAvgPx, decision.stairIdx);
 			await this.persistPortfolio();
 			const trade = {
 				id: crypto.randomUUID(),
@@ -1062,11 +1105,6 @@ export class TickerHub {
 			);
 			const result = this.state.storage.sql.exec('SELECT last_insert_rowid() AS id').one();
 			const roundId = result?.id;
-			this.state.storage.sql.exec(
-				'INSERT OR REPLACE INTO _migrations (id, name, applied_at) VALUES ((SELECT COALESCE(MAX(id),0)+1 FROM _migrations), ?, ?)',
-				`open_dca_round_${roundUuid}`,
-				now
-			);
 			console.log(`[TickerHub] openDcaRound: roundId=${roundId} uuid=${roundUuid} startPrice=$${startPrice}`);
 			return roundId;
 		} catch (err) {
@@ -1548,6 +1586,7 @@ if (this.portfolio) {
 					notes: body?.notes ?? 'init_dca (manual first buy)'
 				});
 				this.currentRoundId = roundId;
+				this.portfolio.currentRoundId = roundId;
 				this.isStarted = true;
 				this.peakValue = this.portfolio.usdtBalance + this.portfolio.solHolding * this.lastTickerPrice;
 				await this.persistPortfolio();

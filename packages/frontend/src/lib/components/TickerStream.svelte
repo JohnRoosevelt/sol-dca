@@ -164,19 +164,81 @@
 	let ws = null;
 	let reconnectTimer = null;
 
+	// === PR-WS-reconnect (2026-06-09): exponential backoff + quota 熔断 ===
+	//   背景: 之前 onclose 固定 3s 重连, DO quota 触顶时 24h × 86400s × N tabs 雪崩
+	//   修复: 失败后指数退避 (1s → 2s → 4s → 8s → 16s → 32s → 60s cap)
+	//         连续失败 8 次后熔断, 停止自动重连, 显示手动重连按钮
+	//   设计: 后端真正修复是 worker quota / okx WS 稳定性, 前端只负责不再雪崩
+	const RECONNECT_BASE_MS = 1_000;
+	const RECONNECT_MAX_DELAY_MS = 60_000;
+	const RECONNECT_CIRCUIT_BREAKER = 8; // 8 次失败后熔断
+	let reconnectAttempts = $state(0);
+	let reconnectStopped = $state(false); // 熔断: 停止自动重连, 等用户手动恢复
+
+	function nextReconnectDelay() {
+		// 指数退避: 1s, 2s, 4s, 8s, 16s, 32s, 60s, 60s, ...
+		const exp = Math.min(RECONNECT_MAX_DELAY_MS, RECONNECT_BASE_MS * Math.pow(2, reconnectAttempts));
+		return exp;
+	}
+
+	function scheduleReconnect() {
+		if (reconnectStopped) return;
+		if (reconnectAttempts >= RECONNECT_CIRCUIT_BREAKER) {
+			reconnectStopped = true;
+			wsState = 'error';
+			setError(
+				`WS 重连失败 ${RECONNECT_CIRCUIT_BREAKER} 次 (可能 DO quota 触顶). ` +
+					`点 [重连] 按钮手动恢复, 或刷新页面`
+			);
+			console.warn(`[TickerStream] circuit breaker tripped after ${reconnectAttempts} attempts`);
+			return;
+		}
+		const delay = nextReconnectDelay();
+		reconnectAttempts++;
+		if (reconnectTimer) clearTimeout(reconnectTimer);
+		console.log(
+			`[TickerStream] reconnect attempt ${reconnectAttempts}/${RECONNECT_CIRCUIT_BREAKER} in ${delay / 1000}s`
+		);
+		reconnectTimer = setTimeout(connect, delay);
+	}
+
+	/** 手动重连 — 熔断后唯一恢复路径, 也用于模式切换 / 刷新后 */
+	function manualReconnect() {
+		reconnectAttempts = 0;
+		reconnectStopped = false;
+		if (reconnectTimer) {
+			clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+		}
+		clearError();
+		connect();
+	}
+
 	function connect() {
 		if (typeof window === 'undefined') return;
+		if (reconnectStopped) return; // 熔断状态不再连, 等 manualReconnect
 		// WS URL 走 env 注入 (PUBLIC_WS_URL) + 当前 mode:
 		//   dev:  ws://localhost:8787/ws?mode=demo
 		//   prod: wss://sol-dca-do-worker.<sub>.workers.dev/ws?mode=demo
 		const sep = WS_URL.includes('?') ? '&' : '?';
 		const url = `${WS_URL}${sep}mode=${mode}`;
 		wsState = 'connecting';
-		ws = new WebSocket(url);
+		try {
+			ws = new WebSocket(url);
+		} catch (err) {
+			// 极端情况: URL 非法 / 浏览器拒绝 WebSocket — 走 backoff 路径
+			console.error('[TickerStream] WebSocket construct failed:', err);
+			wsState = 'error';
+			setError(`WebSocket 构造失败: ${err.message}`);
+			scheduleReconnect();
+			return;
+		}
 
 		ws.onopen = () => {
 			wsState = 'open';
 			connected = true;
+			// 成功连上就重置 backoff 计数 — 一次成功 = 之前失败全清
+			reconnectAttempts = 0;
 		};
 
 		ws.onmessage = (e) => {
@@ -190,15 +252,14 @@
 
 		ws.onerror = () => {
 			wsState = 'error';
-			lastError = 'WebSocket error';
+			setError('WebSocket error');
 		};
 
 		ws.onclose = () => {
 			wsState = 'closed';
 			connected = false;
-			// 自动重连
-			if (reconnectTimer) clearTimeout(reconnectTimer);
-			reconnectTimer = setTimeout(connect, 3000);
+			// PR-WS-reconnect: 走 backoff + 熔断, 不再固定 3s 雪崩
+			scheduleReconnect();
 		};
 	}
 
@@ -233,9 +294,13 @@
 				// slice 跟 hello 消息 (ticker-hub.js) 一致 — 都是 50 条
 				recentTrades = [msg, ...recentTrades].slice(0, 50);
 				// 同步进 完整历史
+				// WS broadcast 用 camelCase (amountUsdt), API 用 snake_case (amount_usdt)
+				// 归一化为 snake_case 让模板统一渲染
 				historyEntries = [
 					{
 						...msg,
+						amount_usdt: msg.amountUsdt ?? msg.amount_usdt,
+						amount_sol: msg.amountSol ?? msg.amount_sol,
 						_type: 'trade',
 						_key: 't_' + (msg.id || Date.now() + '_' + Math.random()),
 						created_at: msg.created_at ?? new Date().toISOString()
@@ -256,7 +321,7 @@
 				recentTrades = [];
 				break;
 			case 'error':
-				lastError = msg.message;
+				setError(msg.message);
 				break;
 		}
 	}
@@ -319,6 +384,14 @@
 			try { ws.close(); } catch (_) {}
 			ws = null;
 		}
+		// PR-WS-reconnect: 切 mode 等于换 DO instance, 重置 backoff / 熔断计数
+		//   (老 DO 的失败状态不该带到新 DO)
+		if (reconnectTimer) {
+			clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+		}
+		reconnectAttempts = 0;
+		reconnectStopped = false;
 		portfolio = null;
 		paused = false;
 		okxWsState = 'init';
@@ -328,7 +401,7 @@
 		recentTrades = [];
 		historyEntries = [];
 		historyFilter = 'all';
-		lastError = null;
+		clearError();
 		connect();
 		fetchState();
 		loadHistory();
@@ -338,7 +411,7 @@
 		try {
 			const res = await fetch(`/api/sync-balance?mode=${mode}`);
 			if (!res.ok) {
-				lastError = `state ${mode} failed: ${res.status}`;
+				setError(`state ${mode} failed: ${res.status}`);
 				return;
 			}
 			const d = await res.json();
@@ -354,8 +427,20 @@
 			if (Array.isArray(d.recentSignals)) recentSignals = d.recentSignals;
 			if (Array.isArray(d.recentTrades)) recentTrades = d.recentTrades;
 		} catch (err) {
-			lastError = `state fetch: ${err}`;
+			setError(`state fetch: ${err}`);
 		}
+	}
+
+	// 错误自动消除：设 lastError 后 10s 自动清掉
+	let _errorTimer;
+	function setError(msg) {
+		lastError = msg;
+		clearTimeout(_errorTimer);
+		_errorTimer = setTimeout(() => { lastError = null; }, 10_000);
+	}
+	function clearError() {
+		lastError = null;
+		clearTimeout(_errorTimer);
 	}
 
 	// === Controls ===
@@ -365,10 +450,14 @@
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ action, ...extra })
 		});
+		const data = await res.json();
 		if (!res.ok) {
-			lastError = `control ${action} failed: ${res.status}`;
+			const detail = data?.error ? `: ${data.error}` : '';
+			setError(`control ${action} failed (${res.status})${detail}`);
+		} else {
+			clearError();
 		}
-		return res.json();
+		return data;
 	}
 
 	// === Refresh balance (USDT + SOL) ===
@@ -398,7 +487,7 @@
 			// 兜底: 等响应后再 fetch 一次, 拿到 sync 后的 portfolio
 			await fetchState();
 		} catch (err) {
-			lastError = `start failed: ${err}`;
+			setError(`start failed: ${err}`);
 		} finally {
 			starting = false;
 		}
@@ -415,12 +504,12 @@
 			// HTTP 4xx/5xx 时 sendControl 内部已 set lastError, 这里再 double-check body.ok
 			const data = await sendControl('manual_buy');
 			if (!data?.ok) {
-				lastError = `first buy failed: ${data?.error ?? 'unknown'}`;
+				setError(`first buy failed: ${data?.error ?? 'unknown'}`);
 			}
 			// 后端 executeBuy 完成会 broadcast trade + portfolio_synced
 			await fetchState();
 		} catch (err) {
-			lastError = `first buy failed: ${err}`;
+			setError(`first buy failed: ${err}`);
 		} finally {
 			firstBuying = false;
 		}
@@ -443,7 +532,7 @@
 		try {
 			const res = await fetch(`/api/reset?mode=${mode}`, { method: 'POST' });
 			if (!res.ok) {
-				lastError = `reset failed: ${res.status}`;
+				setError(`reset failed: ${res.status}`);
 				return;
 			}
 			const data = await res.json();
@@ -454,7 +543,7 @@
 				await fetchState();
 			}
 		} catch (err) {
-			lastError = `reset error: ${err}`;
+			setError(`reset error: ${err}`);
 		} finally {
 			resetting = false;
 		}
@@ -516,8 +605,17 @@
 		<div class="topbar-right">
 			<div class="status">
 				<span class="badge" class:ok={wsState === 'open'} class:warn={wsState === 'connecting'} class:err={wsState === 'closed' || wsState === 'error'}>
-					{wsState}
+					{wsState}{reconnectAttempts > 0 && !reconnectStopped ? ` (${reconnectAttempts})` : ''}
 				</span>
+				{#if reconnectStopped}
+					<button
+						class="ws-retry-btn"
+						onclick={manualReconnect}
+						title="WS 熔断后手动恢复 (8 次连续失败后停止自动重连, 避免 DO quota 雪崩)"
+					>
+						↻ 重连
+					</button>
+				{/if}
 				<span class="badge" class:ok={okxWsState === 'open'} class:err={okxWsState !== 'open'}>
 					OKX: {okxWsState}
 				</span>
@@ -957,6 +1055,22 @@
 	.badge.err {
 		background: #dc2626;
 		color: #fff;
+	}
+	/* PR-WS-reconnect: 熔断后手动重连按钮 (放 topbar, 跟 WS badge 同区) */
+	.ws-retry-btn {
+		background: #dc2626;
+		color: #fff;
+		border: 1px solid #fca5a5;
+		padding: 0.2rem 0.5rem;
+		font-size: 0.7rem;
+		border-radius: 4px;
+		cursor: pointer;
+		line-height: 1;
+		font-family: ui-monospace, monospace;
+	}
+	.ws-retry-btn:hover {
+		background: #b91c1c;
+		border-color: #fff;
 	}
 	.error {
 		background: #7f1d1d;
