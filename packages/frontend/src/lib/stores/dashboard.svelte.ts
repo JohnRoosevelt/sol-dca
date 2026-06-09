@@ -1,27 +1,28 @@
-/**
- * Dashboard store — extracted from TickerStream.svelte (1467 lines).
- *
- * Exports:
- *   createDashboardStore(initial) → store instance with all $state, $derived,
- *     and action methods. The component retains onMount/onDestroy and WS lifecycle.
- *
- * Usage in component:
- *   import { createDashboardStore } from '$lib/stores/dashboard.svelte';
- *   const store = createDashboardStore(props.initial);
- *   // bind reactive state
- *   let { portfolio, mode, wsState, ... } = store;
- */
-
 import { WS_URL, TOTP_SECRET } from '$lib/config.js';
 import { syncBalance, sendControl, reset, fetchSignals, fetchTrades } from '$lib/api/client.js';
 import { createReconnectManager, RECONNECT_CIRCUIT_BREAKER } from '$lib/utils/reconnect.svelte';
 import { isWithinGrace, markTotpVerified, TOTP_VERIFIED_KEY, GRACE_MS } from '$lib/stores/totp.svelte';
 
 // ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface InitialDashboardState {
+	mode?: string;
+	portfolio?: any;
+	paused?: boolean;
+	okxWsState?: string;
+	lastTickerPrice?: number;
+	lastTickerAt?: string;
+	missingCredentials?: string[];
+	sabbath?: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Store factory
 // ---------------------------------------------------------------------------
 
-export function createDashboardStore(initial = {}) {
+export function createDashboardStore(initial: InitialDashboardState = {}) {
 	// === Mode: demo / live (localStorage > SSR initial > fallback) ===
 	const VALID_MODES = ['demo', 'live'];
 	function loadMode() {
@@ -112,7 +113,7 @@ export function createDashboardStore(initial = {}) {
 		lastTickerAt ? new Date(lastTickerAt).toLocaleTimeString() : ''
 	);
 	let tickerAgeSec = $derived(
-		lastTickerAt ? Math.max(0, Math.floor((Date.now() - lastTickerAt) / 1000)) : -1
+		lastTickerAt ? Math.max(0, Math.floor((Date.now() - Number(lastTickerAt)) / 1000)) : -1
 	);
 	let liveCurrentValue = $derived.by(() => {
 		if (!portfolio) return 0;
@@ -466,7 +467,7 @@ export function createDashboardStore(initial = {}) {
 				reason: t.reason
 			}));
 			historyEntries = [...sEntries, ...tEntries]
-				.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+				.sort((a, b) => +new Date(String(b.created_at)) - +new Date(String(a.created_at)))
 				.slice(0, HISTORY_LIMIT);
 		} catch (err) {
 			console.error('loadHistory failed:', err);
